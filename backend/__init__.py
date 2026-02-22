@@ -1,5 +1,5 @@
 """
-Hackathon Email Gateway - Backend Package
+ProtoPost - Backend Package
 A production-quality email routing proxy server.
 """
 

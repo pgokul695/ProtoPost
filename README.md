@@ -1,286 +1,174 @@
-# 📧 Hackathon Email Gateway
+<!-- Last updated: when this project was generated -->
 
-A production-quality local proxy server that lets you route, mock, and load-balance outbound emails **without changing a single line of your application code**. Perfect for development, testing, and hackathons.
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Platform](https://img.shields.io/badge/Works%20on-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![Hackathon Ready](https://img.shields.io/badge/Hackathon-Ready-brightgreen)
 
-## ✨ Features
+# 📧 ProtoPost — Hackathon Email Gateway
 
-- 🚀 **Zero-config proxy** — Works as a drop-in replacement for any email service
-- 🎯 **Multiple provider support** — Resend, Mailtrap, Gmail, Custom SMTP
-- ⚖️ **Load balancing** — Manual weighted distribution or smart failover
-- 🧪 **Sandbox mode** — Intercept all emails locally for safe testing
-- 📊 **Real-time dashboard** — Monitor all sent emails with detailed logs
-- 🔄 **Live config reload** — No server restart needed
-- 🎨 **Beautiful dark-mode UI** — Built with Tailwind CSS
+A local email proxy that lets you switch providers, mock sends, and debug emails — without touching your app code.
 
 ---
 
-## 🚀 Quick Start
+## Why this exists
 
-### 1. Install Dependencies
+Building at a hackathon and need email working in the next hour? You've got two problems: setting up an email provider is annoying, and debugging why your emails aren't sending is even more annoying.
+
+ProtoPost solves both. Run one server locally, point your app at it, and you get:
+
+- A dashboard to see every email your app tries to send
+- Sandbox mode that captures emails without sending anything (great for testing)
+- Automatic switching to a backup provider if your primary one fails
+- Support for Resend, Mailtrap, Gmail, and any custom SMTP server
+
+---
+
+## Dashboard Preview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📧 ProtoPost               [SANDBOX MODE: OFF  ○──────●  ON]  │
+├─────────────────────────────────────────────────────────────────┤
+│  [Outbox & Logs]  [Providers]  [Routing]  [Test Send]           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   Total Sent   Failed   Sandbox   Avg Time                      │
+│      142          2        58      340ms                        │
+│                                                                  │
+│  Timestamp    To                Subject         Provider  Status │
+│  12:04:32     user@example.com  Welcome!        Resend    ✓     │
+│  12:03:11     test@test.com     Reset link      Resend    ✓     │
+│  12:01:44     admin@co.com      Alert: down     [sandbox] 📦   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Quick Start
+
+### Requirements
+
+- Python 3.11 or higher ([download](https://python.org/downloads))
+- pip (comes with Python)
+- A terminal (Terminal on Mac, PowerShell or CMD on Windows)
+
+### 1. Clone or download this project
 
 ```bash
-cd hackathon-email-gateway
+git clone https://github.com/yourname/protopost.git
+cd protopost
+```
+
+### 2. Install dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Start the Server
+### 3. Start the server
 
 ```bash
 uvicorn backend.main:app --reload --port 8000
 ```
 
-*Note: You can use any port you prefer. The dashboard automatically detects the server URL.*
+> [!NOTE]
+> **Windows users:** If `uvicorn` isn't found, run:
+> ```bash
+> python -m uvicorn backend.main:app --reload --port 8000
+> ```
 
-### 3. Open the Dashboard
+### 4. Open the dashboard
 
-Navigate to `http://localhost:8000` in your browser.
+Visit: **http://localhost:8000**
 
----
-
-## 📤 Sending Emails via the API
-
-### Using cURL
-
-```bash
-curl -X POST http://localhost:8000/v1/send \
-  -H "Content-Type: application/json" \
-  -d '{
-    "from": "dev@yourdomain.com",
-    "to": ["recipient@example.com"],
-    "subject": "Hello from Gateway",
-    "body_html": "<h1>It works!</h1>",
-    "body_text": "It works!"
-  }'
-```
-
-### Using Python (httpx)
-
-```python
-import httpx
-import asyncio
-
-async def send_email():
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            'http://localhost:8000/v1/send',
-            json={
-                'from': 'dev@yourdomain.com',
-                'to': ['recipient@example.com'],
-                'subject': 'Hello from Gateway',
-                'body_html': '<h1>It works!</h1>',
-                'body_text': 'It works!'
-            }
-        )
-        print(response.json())
-
-asyncio.run(send_email())
-```
-
-### Using Python (requests)
-
-```python
-import requests
-
-response = requests.post(
-    'http://localhost:8000/v1/send',
-    json={
-        'from': 'dev@yourdomain.com',
-        'to': ['recipient@example.com'],
-        'subject': 'Hello from Gateway',
-        'body_html': '<h1>It works!</h1>'
-    }
-)
-print(response.json())
-```
+That's it. The dashboard opens in your browser. No config file to edit first.
 
 ---
 
-## 📋 Provider Setup Guide
+## What you can do
 
-### Resend
-
-1. Sign up at [resend.com](https://resend.com)
-2. Navigate to **API Keys** in the dashboard
-3. Create a new API key
-4. Add domain verification (required for production sending)
-5. In the gateway dashboard: **Providers → Add Provider**
-   - Type: **Resend API**
-   - API Key: Paste your key
-   - Weight: Set traffic percentage (e.g., 100)
-
-### Mailtrap
-
-1. Sign up at [mailtrap.io](https://mailtrap.io)
-2. Navigate to **Sending Domains** → **API Tokens**
-3. Copy your API token (starts with a long string)
-4. In the gateway dashboard: **Providers → Add Provider**
-   - Type: **Mailtrap API**
-   - API Key: Paste your token
-   - Weight: Set traffic percentage
-
-### Gmail (App Password)
-
-⚠️ **Requirements:**
-- Gmail account with 2-Factor Authentication enabled
-- App Password generated (regular password will NOT work)
-
-**Steps:**
-1. Go to [myaccount.google.com/security](https://myaccount.google.com/security)
-2. Enable **2-Step Verification** if not already enabled
-3. Search for **App Passwords** (or go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords))
-4. Generate a new app password:
-   - App: **Mail**
-   - Device: **Other (Custom name)** → "Email Gateway"
-5. Copy the 16-character password (remove spaces)
-6. In the gateway dashboard: **Providers → Add Provider**
-   - Type: **Gmail App Password**
-   - Gmail Address: Your full Gmail address
-   - App Password: Paste the 16-character code
-
-### Custom SMTP Server
-
-For any SMTP-compatible service (SendGrid, Mailgun, Postmark, etc.):
-
-**Common Port Reference:**
-- `25` — Standard SMTP (often blocked by ISPs)
-- `587` — SMTP with STARTTLS (recommended)
-- `465` — SMTP with SSL/TLS
-- `2525` — Alternative non-standard port
-
-**Configuration:**
-1. Get SMTP credentials from your provider
-2. In the gateway dashboard: **Providers → Add Provider**
-   - Type: **Custom SMTP Server**
-   - Host: `smtp.example.com`
-   - Port: `587` (or provider-specific)
-   - Username: Your SMTP username
-   - Password: Your SMTP password
-   - Use TLS: ✅ (for port 587)
-   - Use SSL: ❌ (unless using port 465)
+| Feature | What it means for you |
+|---|---|
+| Sandbox Mode | Emails get captured, never sent. Safe for testing. |
+| Provider Switching | Change from Resend to Gmail in 2 clicks. No code changes. |
+| Automatic Failover | If Resend fails, it tries Gmail automatically. |
+| Load Balancing | Split traffic 70/30 across two providers. |
+| Email Logs | See every email your app sent, with full payload. |
+| Zero App Changes | Your app keeps calling the same endpoint. |
+| Setup Wizards | Guided steps for Gmail and Resend setup — built into the UI. |
 
 ---
 
-## 🧪 Sandbox Mode
+## How to send an email
 
-**What is Sandbox Mode?**
+Point your app at `POST http://localhost:8000/v1/send`:
 
-When enabled, ALL emails are intercepted locally and logged — **no external API calls are made**. Perfect for:
-- Local development
-- CI/CD pipelines
-- Testing email logic without spam
-- Demo environments
-
-**How to Enable:**
-
-1. **Via Dashboard:** Toggle the **Sandbox Mode** switch in the header
-2. **Via API:**
-   ```bash
-   curl -X POST http://localhost:8000/v1/config/routing \
-     -H "Content-Type: application/json" \
-     -d '{"mode": "smart", "sandbox": true}'
-   ```
-
-**What Happens:**
-- Emails are logged with status `sandbox`
-- No providers are contacted
-- Processing time is still recorded
-- All logs visible in dashboard
-
----
-
-## ⚖️ Load Balancing Guide
-
-### Manual Mode (Weighted Distribution)
-
-Traffic is split randomly based on provider weights:
-
-**Example:**
-- Provider A: Weight 70
-- Provider B: Weight 30
-
-**Result:** Provider A receives ~70% of emails, Provider B gets ~30%
-
-**Use Cases:**
-- Gradual migration between providers
-- A/B testing email deliverability
-- Cost optimization (cheaper provider gets more traffic)
-
-**Setup:**
-1. Navigate to **Routing** tab
-2. Select **Manual Load Balancing**
-3. Set weights for each provider in the **Providers** tab
-
-### Smart Mode (Automatic Failover)
-
-Providers are tried in order of weight (highest first). If the primary fails, the next provider is attempted automatically.
-
-**Example:**
-- Provider A: Weight 100 (Primary)
-- Provider B: Weight 50 (Secondary)
-- Provider C: Weight 25 (Tertiary)
-
-**Result:** Always try A first → If fails, try B → If fails, try C
-
-**Use Cases:**
-- High availability
-- Backup provider configuration
-- Regional fallbacks
-
-**Setup:**
-1. Navigate to **Routing** tab
-2. Select **Smart Failover**
-3. Set weights to define priority order
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐
-│   Your App      │
-│  (any language) │
-└────────┬────────┘
-         │
-         │ POST /v1/send
-         ▼
-┌─────────────────────────────────┐
-│   FastAPI Gateway (port 8000)   │
-│                                  │
-│  1. Read config.json             │
-│  2. Check Sandbox Mode?          │
-│     ├─ Yes → Log + Return        │
-│     └─ No  → Route to provider   │
-│                                  │
-│  3. Load Balancer:               │
-│     ├─ Manual: Weighted random   │
-│     └─ Smart: Try by priority    │
-│                                  │
-│  4. Provider Dispatch            │
-└───┬─────────┬─────────┬─────────┘
-    │         │         │
-    ▼         ▼         ▼
-┌─────┐  ┌────────┐  ┌──────┐
-│SMTP │  │Resend  │  │Gmail │
-│     │  │  API   │  │SMTP  │
-└─────┘  └────────┘  └──────┘
-    │         │         │
-    └─────────┴─────────┘
-              │
-         Log Result
-              ▼
-        ┌──────────┐
-        │ SQLite   │
-        │ Database │
-        └──────────┘
+```json
+{
+  "from": "you@yourdomain.com",
+  "to": ["recipient@example.com"],
+  "subject": "Hello!",
+  "body_html": "<h1>It works</h1>",
+  "body_text": "It works"
+}
 ```
 
+That's the only integration step. Your app never needs to know which provider is in use.
+
 ---
 
-## 📂 Project Structure
+## Architecture
 
 ```
-hackathon-email-gateway/
-│
+Your App Code
+     │
+     │  POST /v1/send  (JSON payload)
+     ▼
+┌─────────────────────────────┐
+│    ProtoPost Server         │  ← runs at localhost:8000
+│                             │
+│  ┌─────────────────────┐    │
+│  │   config.json       │    │  ← updated live from dashboard
+│  └────────┬────────────┘    │
+│           │                 │
+│  ┌────────▼────────────┐    │
+│  │   Routing Engine    │    │
+│  │                     │    │
+│  │  Sandbox? → Log it  │    │
+│  │  Manual  → Weighted │    │
+│  │  Smart   → Failover │    │
+│  └────────┬────────────┘    │
+│           │                 │
+└───────────┼─────────────────┘
+            │
+    ┌───────┴────────┐
+    │                │
+    ▼                ▼
+  Resend API    Custom SMTP      ... (any configured provider)
+```
+
+The server reads `config.json` on every request. Change a provider in the dashboard and the next email uses it — no restart needed.
+
+---
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [docs/HACKATHON_QUICKSTART.md](docs/HACKATHON_QUICKSTART.md) | Get email working in 5 minutes — start here if you're in a hurry |
+| [docs/PROVIDERS.md](docs/PROVIDERS.md) | How to set up Resend, Mailtrap, Gmail, and custom SMTP |
+| [docs/ROUTING.md](docs/ROUTING.md) | Load balancing and failover explained |
+| [docs/API.md](docs/API.md) | Full REST API reference with code examples |
+| [docs/SANDBOX.md](docs/SANDBOX.md) | Sandbox mode — what it does and when to use it |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Exact fixes for the most common errors |
+
+---
+
+## Project Structure
+
+```
+protopost/
 ├── backend/
 │   ├── main.py              # FastAPI app + all endpoints
 │   ├── router.py            # Routing logic + load balancing
@@ -288,172 +176,19 @@ hackathon-email-gateway/
 │   ├── database.py          # SQLite operations
 │   ├── providers.py         # Email sending implementations
 │   └── models.py            # Pydantic schemas
-│
 ├── frontend/
 │   └── dashboard.html       # Complete single-file SPA
-│
+├── docs/                    # This documentation suite
 ├── config.json              # Runtime configuration (auto-created)
 ├── emails.db                # SQLite database (auto-created)
-├── requirements.txt         # Python dependencies
-└── README.md                # This file
+└── requirements.txt         # Python dependencies
 ```
 
 ---
 
-## 🔌 API Reference
+## License
 
-### `POST /v1/send`
-Send an email through the gateway.
+MIT — use it however you want, including at your hackathon.
 
-**Request Body:**
-```json
-{
-  "from": "sender@example.com",
-  "to": ["recipient@example.com"],
-  "subject": "Email subject",
-  "body_text": "Plain text body",
-  "body_html": "<h1>HTML body</h1>",
-  "reply_to": "reply@example.com"
-}
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) if you want to add a provider or fix something.
 
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Email sent successfully via Provider Name",
-  "provider": {
-    "id": "uuid",
-    "name": "Provider Name",
-    "type": "resend"
-  },
-  "log_id": "uuid",
-  "processing_time_ms": 234.56,
-  "message_id": "provider-message-id"
-}
-```
-
-### `GET /v1/logs`
-Retrieve email logs with pagination.
-
-**Query Parameters:**
-- `limit` (default: 100, max: 500)
-- `offset` (default: 0)
-
-### `GET /v1/logs/{log_id}`
-Get detailed information for a single log entry.
-
-### `GET /v1/stats`
-Get aggregate statistics (total sent, failed, sandbox, avg time).
-
-### `GET /v1/config`
-Get current configuration (providers, routing, sandbox state).
-
-### `PUT /v1/config`
-Update entire configuration.
-
-### `POST /v1/config/providers`
-Add a new provider.
-
-### `PUT /v1/config/providers/{provider_id}`
-Update a provider by ID.
-
-### `DELETE /v1/config/providers/{provider_id}`
-Delete a provider by ID.
-
-### `POST /v1/config/routing`
-Update routing configuration (mode and sandbox toggle).
-
-### `GET /v1/health`
-Health check endpoint.
-
----
-
-## 🛠️ Configuration File Format
-
-`config.json` is auto-created and can be edited manually (changes apply on next request):
-
-```json
-{
-  "providers": [
-    {
-      "id": "uuid",
-      "name": "My Resend Provider",
-      "type": "resend",
-      "enabled": true,
-      "weight": 100,
-      "api_key": "re_xxxxxxxxxxxx"
-    }
-  ],
-  "routing": {
-    "mode": "smart",
-    "sandbox": false
-  },
-  "version": 1
-}
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Server won't start
-- Ensure port 8000 is not in use: `lsof -i :8000`
-- Check Python version: `python --version` (requires 3.11+)
-- Verify dependencies: `pip list | grep fastapi`
-
-### Emails not sending
-- Check provider credentials in dashboard
-- View detailed error in **Outbox & Logs** tab → **View Details**
-- Test provider independently (use their web UI or docs)
-- Enable Sandbox Mode to test routing logic without external calls
-
-### Dashboard not loading
-- Ensure `frontend/dashboard.html` exists
-- Check browser console for errors (F12)
-- Verify server is running: `curl http://localhost:8000/v1/health` (adjust port if different)
-
-### Gmail "Authentication failed"
-- Must use App Password, not regular password
-- 2FA must be enabled on the Google account
-- Remove spaces from the 16-character app password
-
----
-
-## 📝 License
-
-MIT License - Free for personal and commercial use.
-
----
-
-## 🤝 Contributing
-
-This is a hackathon project scaffold. Fork it, customize it, break it, fix it — make it yours!
-
----
-
-## 🎯 Use Cases
-
-- **Hackathons** — Focus on features, not email infrastructure
-- **Development** — Test email logic without spam
-- **CI/CD** — Validate email content in tests
-- **Multi-provider setups** — Load balance or failover between services
-- **Cost optimization** — Route to cheaper providers for bulk emails
-- **email migration** — Gradually shift traffic from old to new provider
-
----
-
-## 🚀 What's Next?
-
-- Add webhook support for delivery status
-- Implement email templates
-- Add rate limiting per provider
-- Support for attachments
-- Email preview in dashboard
-- Export logs to CSV
-- Provider health checks
-- Scheduled email sending
-
----
-
-**Built with ❤️ for developers who just want to send emails without the hassle.**

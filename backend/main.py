@@ -19,7 +19,7 @@ from .router import routing_engine
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Hackathon Email Gateway",
+    title="ProtoPost",
     description="A local proxy server for routing and mocking outbound emails",
     version="1.0.0"
 )
