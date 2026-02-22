@@ -1,0 +1,286 @@
+"""
+Email provider implementations.
+Async functions for sending emails via Resend, Mailtrap, Gmail, and Custom SMTP.
+"""
+
+import httpx
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from .models import EmailPayload, Provider, ProviderType
+
+
+async def send_via_resend(payload: EmailPayload, provider: Provider) -> dict:
+    """
+    Send email via Resend API.
+    
+    Args:
+        payload: Email content and metadata
+        provider: Provider configuration with API key
+    
+    Returns:
+        dict: Success response with provider_id and message_id
+    
+    Raises:
+        Exception: If API call fails, includes status code and response body
+    """
+    url = "https://api.resend.com/emails"
+    
+    headers = {
+        "Authorization": f"Bearer {provider.api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Build request body according to Resend API schema
+    body = {
+        "from": payload.from_address,
+        "to": payload.to,
+        "subject": payload.subject
+    }
+    
+    if payload.body_html:
+        body["html"] = payload.body_html
+    
+    if payload.body_text:
+        body["text"] = payload.body_text
+    
+    if payload.reply_to:
+        body["reply_to"] = payload.reply_to
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=body, headers=headers)
+        
+        if response.status_code not in [200, 201]:
+            raise Exception(
+                f"Resend API failed with status {response.status_code}: {response.text}"
+            )
+        
+        result = response.json()
+        
+        return {
+            "success": True,
+            "provider_id": provider.id,
+            "message_id": result.get("id", "unknown"),
+            "response": result
+        }
+
+
+async def send_via_mailtrap(payload: EmailPayload, provider: Provider) -> dict:
+    """
+    Send email via Mailtrap API.
+    
+    Args:
+        payload: Email content and metadata
+        provider: Provider configuration with API token
+    
+    Returns:
+        dict: Success response with provider_id and message_id
+    
+    Raises:
+        Exception: If API call fails, includes status code and response body
+    """
+    url = "https://send.api.mailtrap.io/api/send"
+    
+    headers = {
+        "Api-Token": provider.api_key,
+        "Content-Type": "application/json"
+    }
+    
+    # Build request body according to Mailtrap API schema
+    body = {
+        "from": {"email": payload.from_address},
+        "to": [{"email": addr} for addr in payload.to],
+        "subject": payload.subject
+    }
+    
+    if payload.body_html:
+        body["html"] = payload.body_html
+    
+    if payload.body_text:
+        body["text"] = payload.body_text
+    
+    if payload.reply_to:
+        body["reply_to"] = {"email": payload.reply_to}
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=body, headers=headers)
+        
+        if response.status_code not in [200, 201]:
+            raise Exception(
+                f"Mailtrap API failed with status {response.status_code}: {response.text}"
+            )
+        
+        result = response.json()
+        
+        return {
+            "success": True,
+            "provider_id": provider.id,
+            "message_id": result.get("message_id", "unknown"),
+            "response": result
+        }
+
+
+async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
+    """
+    Send email via Gmail SMTP using app password.
+    
+    Args:
+        payload: Email content and metadata
+        provider: Provider configuration with Gmail credentials
+    
+    Returns:
+        dict: Success response with provider_id
+    
+    Raises:
+        Exception: If SMTP connection or send fails
+    """
+    # Build MIME message
+    if payload.body_html and payload.body_text:
+        # Multipart message with both text and HTML
+        message = MIMEMultipart("alternative")
+        part1 = MIMEText(payload.body_text, "plain")
+        part2 = MIMEText(payload.body_html, "html")
+        message.attach(part1)
+        message.attach(part2)
+    elif payload.body_html:
+        message = MIMEText(payload.body_html, "html")
+    else:
+        message = MIMEText(payload.body_text, "plain")
+    
+    message["From"] = payload.from_address
+    message["To"] = ", ".join(payload.to)
+    message["Subject"] = payload.subject
+    
+    if payload.reply_to:
+        message["Reply-To"] = payload.reply_to
+    
+    try:
+        # Connect to Gmail SMTP server
+        smtp_client = aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587)
+        
+        await smtp_client.connect()
+        await smtp_client.starttls()
+        await smtp_client.login(provider.gmail_address, provider.gmail_app_password)
+        
+        # Send email
+        await smtp_client.send_message(message)
+        
+        await smtp_client.quit()
+        
+        return {
+            "success": True,
+            "provider_id": provider.id,
+            "message_id": message.get("Message-ID", "unknown"),
+            "response": {"status": "sent via Gmail SMTP"}
+        }
+    
+    except Exception as e:
+        raise Exception(f"Gmail SMTP failed: {str(e)}")
+
+
+async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dict:
+    """
+    Send email via custom SMTP server.
+    
+    Args:
+        payload: Email content and metadata
+        provider: Provider configuration with SMTP credentials
+    
+    Returns:
+        dict: Success response with provider_id
+    
+    Raises:
+        Exception: If SMTP connection or send fails
+    """
+    # Build MIME message
+    if payload.body_html and payload.body_text:
+        # Multipart message with both text and HTML
+        message = MIMEMultipart("alternative")
+        part1 = MIMEText(payload.body_text, "plain")
+        part2 = MIMEText(payload.body_html, "html")
+        message.attach(part1)
+        message.attach(part2)
+    elif payload.body_html:
+        message = MIMEText(payload.body_html, "html")
+    else:
+        message = MIMEText(payload.body_text, "plain")
+    
+    message["From"] = payload.from_address
+    message["To"] = ", ".join(payload.to)
+    message["Subject"] = payload.subject
+    
+    if payload.reply_to:
+        message["Reply-To"] = payload.reply_to
+    
+    try:
+        # Determine connection method based on flags
+        use_tls = provider.smtp_use_tls
+        use_ssl = provider.smtp_use_ssl
+        
+        if use_ssl:
+            # Direct SSL/TLS connection
+            smtp_client = aiosmtplib.SMTP(
+                hostname=provider.smtp_host,
+                port=provider.smtp_port,
+                use_tls=True
+            )
+        else:
+            # Plain connection (may upgrade with STARTTLS)
+            smtp_client = aiosmtplib.SMTP(
+                hostname=provider.smtp_host,
+                port=provider.smtp_port
+            )
+        
+        await smtp_client.connect()
+        
+        # Use STARTTLS if requested and not already using SSL
+        if use_tls and not use_ssl:
+            await smtp_client.starttls()
+        
+        # Authenticate
+        await smtp_client.login(provider.smtp_username, provider.smtp_password)
+        
+        # Send email
+        await smtp_client.send_message(message)
+        
+        await smtp_client.quit()
+        
+        return {
+            "success": True,
+            "provider_id": provider.id,
+            "message_id": message.get("Message-ID", "unknown"),
+            "response": {"status": f"sent via {provider.smtp_host}:{provider.smtp_port}"}
+        }
+    
+    except Exception as e:
+        raise Exception(f"Custom SMTP failed: {str(e)}")
+
+
+async def dispatch(payload: EmailPayload, provider: Provider) -> dict:
+    """
+    Dispatch email to the appropriate provider based on type.
+    
+    Args:
+        payload: Email content and metadata
+        provider: Provider configuration
+    
+    Returns:
+        dict: Success response from the provider
+    
+    Raises:
+        Exception: If provider type is unsupported or send fails
+    """
+    if provider.type == ProviderType.resend:
+        return await send_via_resend(payload, provider)
+    
+    elif provider.type == ProviderType.mailtrap:
+        return await send_via_mailtrap(payload, provider)
+    
+    elif provider.type == ProviderType.gmail:
+        return await send_via_gmail(payload, provider)
+    
+    elif provider.type == ProviderType.custom_smtp:
+        return await send_via_custom_smtp(payload, provider)
+    
+    else:
+        raise Exception(f"Unsupported provider type: {provider.type}")

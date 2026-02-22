@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Gateway Dashboard</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background-color: #0f172a;
+        }
+        
+        /* Toast animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .toast-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .toast-exit {
+            animation: slideOutRight 0.3s ease-in;
+        }
+        
+        /* Progress bar animation */
+        @keyframes shrink {
+            from {
+                width: 100%;
+            }
+            to {
+                width: 0%;
+            }
+        }
+        
+        .toast-progress {
+            animation: shrink linear;
+        }
+        
+        /* Slide panel animation */
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+        
+        .slide-panel {
+            animation: slideInFromRight 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="text-gray-100">
+    
+    <!-- Header Bar -->
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Logo -->
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>📧</span>
+                    <span>Email Gateway</span>
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">Local email routing & testing proxy</p>
+            </div>
+            
+            <!-- Sandbox Toggle -->
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-3 cursor-pointer bg-slate-700 px-5 py-3 rounded-lg border-2 border-slate-600 hover:border-indigo-500 transition-all">
+                    <input type="checkbox" id="sandboxToggle" class="w-5 h-5 rounded accent-indigo-500 cursor-pointer">
+                    <div>
+                        <div class="text-sm font-semibold text-white">Sandbox Mode</div>
+                        <div class="text-xs text-slate-400">Intercept all emails locally</div>
+                    </div>
+                </label>
+            </div>
+            
+            <!-- Connection Status -->
+            <div class="flex items-center gap-2">
+                <div id="connectionDot" class="w-3 h-3 rounded-full bg-gray-500"></div>
+                <span class="text-sm text-slate-400">Server: <span id="serverStatus">checking...</span></span>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        
+        <!-- Tab Navigation -->
+        <nav class="flex gap-2 mb-6 border-b border-slate-700">
+            <button onclick="switchTab('logs')" id="tab-logs" class="tab-button px-6 py-3 font-medium transition-all border-b-2 border-transparent hover:text-indigo-400">
+                Outbox & Logs
+            </button>
+            <button onclick="switchTab('providers')" id="tab-providers" class="tab-button px-6 py-3 font-medium transition-all border-b-2 border-transparent hover:text-indigo-400">
+                Providers
+            </button>
+            <button onclick="switchTab('routing')" id="tab-routing" class="tab-button px-6 py-3 font-medium transition-all border-b-2 border-transparent hover:text-indigo-400">
+                Routing
+            </button>
+            <button onclick="switchTab('test')" id="tab-test" class="tab-button px-6 py-3 font-medium transition-all border-b-2 border-transparent hover:text-indigo-400">
+                Test Send
+            </button>
+        </nav>
+        
+        <!-- Tab Content -->
+        <div id="tabContent">
+            <!-- Content will be rendered here -->
+        </div>
+    </main>
+    
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-md"></div>
+    
+    <!-- Modal Overlay (for log details) -->
+    <div id="modalOverlay" class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-6" onclick="closeModal()">
+        <div class="bg-slate-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div id="modalContent"></div>
+        </div>
+    </div>
+    
+    <!-- Side Panel (for provider forms) -->
+    <div id="sidePanel" class="hidden fixed inset-y-0 right-0 w-full md:w-[600px] bg-slate-800 shadow-2xl z-50 overflow-y-auto slide-panel">
+        <div id="sidePanelContent"></div>
+    </div>
+    
+    <script>
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        
+        const state = {
+            config: null,
+            logs: [],
+            stats: {},
+            activeTab: 'logs',
+            autoRefresh: false,
+            autoRefreshInterval: null,
+            editingProvider: null
+        };
+        
+        // ============================================
+        // API CLIENT
+        // ============================================
+        
+        const GatewayAPI = {
+            base: window.location.origin,  // Dynamically use current origin
+            
+            async request(method, path, body = null) {
+                try {
+                    const options = {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    };
+                    
+                    if (body) {
+                        options.body = JSON.stringify(body);
+                    }
+                    
+                    const response = await fetch(`${this.base}${path}`, options);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                        throw new Error(JSON.stringify(errorData.detail || errorData));
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    if (error.message.includes('Failed to fetch')) {
+                        throw new Error('Cannot connect to gateway server. Is it running?');
+                    }
+                    throw error;
+                }
+            },
+            
+            async get(path) { return this.request('GET', path); },
+            async post(path, body) { return this.request('POST', path, body); },
+            async put(path, body) { return this.request('PUT', path, body); },
+            async delete(path) { return this.request('DELETE', path); }
+        };
+        
+        // ============================================
+        // TOAST NOTIFICATION SYSTEM
+        // ============================================
+        
+        const Toast = {
+            container: null,
+            
+            init() {
+                this.container = document.getElementById('toastContainer');
+            },
+            
+            show(message, type = 'info', duration = 4000) {
+                const icons = {
+                    success: '✓',
+                    error: '✕',
+                    warning: '⚠',
+                    info: 'ℹ'
+                };
+                
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    warning: 'bg-amber-500',
+                    info: 'bg-indigo-500'
+                };
+                
+                const toast = document.createElement('div');
+                toast.className = `toast-enter ${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-start gap-3 min-w-[300px]`;
+                
+                toast.innerHTML = `
+                    <div class="text-2xl font-bold">${icons[type]}</div>
+                    <div class="flex-1">
+                        <div class="text-sm font-medium">${message}</div>
+                        <div class="h-1 bg-white bg-opacity-30 rounded-full mt-2 overflow-hidden">
+                            <div class="h-full bg-white toast-progress" style="animation-duration: ${duration}ms"></div>
+                        </div>
+                    </div>
+                    <button onclick="this.parentElement.remove()" class="text-white hover:text-gray-200 text-xl font-bold">×</button>
+                `;
+                
+                this.container.appendChild(toast);
+                
+                if (duration > 0) {
+                    setTimeout(() => {
+                        toast.classList.add('toast-exit');
+                        setTimeout(() => toast.remove(), 300);
+                    }, duration);
+                }
+            },
+            
+            success(msg) { this.show(msg, 'success'); },
+            error(msg, duration = 8000) { this.show(msg, 'error', duration); },
+            warning(msg) { this.show(msg, 'warning'); },
+            info(msg) { this.show(msg, 'info'); }
+        };
+        
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        async function init() {
+            Toast.init();
+            
+            // Check server connectivity
+            await checkServerHealth();
+            
+            // Load initial data
+            await loadConfig();
+            await loadLogs();
+            await loadStats();
+            
+            // Setup sandbox toggle
+            setupSandboxToggle();
+            
+            // Render initial tab
+            switchTab('logs');
+        }
+        
+        async function checkServerHealth() {
+            try {
+                const health = await GatewayAPI.get('/v1/health');
+                document.getElementById('connectionDot').className = 'w-3 h-3 rounded-full bg-green-500';
+                document.getElementById('serverStatus').textContent = window.location.host;
+            } catch (error) {
+                document.getElementById('connectionDot').className = 'w-3 h-3 rounded-full bg-red-500';
+                document.getElementById('serverStatus').textContent = 'offline';
+                Toast.error('Cannot connect to gateway server', 0);
+            }
+        }
+        
+        async function loadConfig() {
+            try {
+                state.config = await GatewayAPI.get('/v1/config');
+                
+                // Update sandbox toggle
+                document.getElementById('sandboxToggle').checked = state.config.routing.sandbox;
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
+        
+        async function loadLogs() {
+            try {
+                const response = await GatewayAPI.get('/v1/logs?limit=100');
+                state.logs = response.logs;
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                state.stats = await GatewayAPI.get('/v1/stats');
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+        
+        function setupSandboxToggle() {
+            document.getElementById('sandboxToggle').addEventListener('change', async (e) => {
+                const enabled = e.target.checked;
+                
+                try {
+                    await GatewayAPI.post('/v1/config/routing', {
+                        mode: state.config.routing.mode,
+                        sandbox: enabled
+                    });
+                    
+                    state.config.routing.sandbox = enabled;
+                    
+                    if (enabled) {
+                        Toast.info('Sandbox Mode enabled - All emails will be intercepted locally');
+                    } else {
+                        Toast.info('Sandbox Mode disabled - Live routing resumed');
+                    }
+                } catch (error) {
+                    Toast.error('Failed to toggle sandbox mode');
+                    e.target.checked = !enabled; // Revert
+                }
+            });
+        }
+        
+        // ============================================
+        // TAB MANAGEMENT
+        // ============================================
+        
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('text-indigo-400', 'border-indigo-500');
+                btn.classList.add('text-slate-400');
+            });
+            
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.remove('text-slate-400');
+            activeBtn.classList.add('text-indigo-400', 'border-indigo-500');
+            
+            // Render tab content
+            renderTabContent(tabName);
+        }
+        
+        function renderTabContent(tabName) {
+            const content = document.getElementById('tabContent');
+            
+            if (tabName === 'logs') {
+                content.innerHTML = renderLogsTab();
+            } else if (tabName === 'providers') {
+                content.innerHTML = renderProvidersTab();
+            } else if (tabName === 'routing') {
+                content.innerHTML = renderRoutingTab();
+            } else if (tabName === 'test') {
+                content.innerHTML = renderTestTab();
+            }
+        }
+        
+        // ============================================
+        // LOGS TAB
+        // ============================================
+        
+        function renderLogsTab() {
+            const stats = state.stats;
+            
+            return `
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Total Sent</div>
+                        <div class="text-3xl font-bold text-green-400">${stats.total_sent || 0}</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Failed</div>
+                        <div class="text-3xl font-bold text-red-400">${stats.total_failed || 0}</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Sandbox</div>
+                        <div class="text-3xl font-bold text-amber-400">${stats.total_sandbox || 0}</div>
+                    </div>
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                        <div class="text-sm text-slate-400">Avg Response</div>
+                        <div class="text-3xl font-bold text-indigo-400">${stats.avg_processing_time || 0}<span class="text-sm">ms</span></div>
+                    </div>
+                </div>
+                
+                <!-- Controls -->
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()" class="rounded accent-indigo-500">
+                            <span>Auto-refresh (5s)</span>
+                        </label>
+                        <button onclick="refreshLogs()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors">
+                            Refresh Now
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Logs Table -->
+                ${state.logs.length === 0 ? renderEmptyLogs() : renderLogsTable()}
+            `;
+        }
+        
+        function renderEmptyLogs() {
+            return `
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
+                    <div class="text-6xl mb-4">📭</div>
+                    <h3 class="text-xl font-semibold mb-2">No emails sent yet</h3>
+                    <p class="text-slate-400">Send a test email from the "Test Send" tab to get started</p>
+                </div>
+            `;
+        }
+        
+        function renderLogsTable() {
+            return `
+                <div class="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-slate-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Timestamp</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">To</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Subject</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Provider</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Time (ms)</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-300 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            ${state.logs.map(log => renderLogRow(log)).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function renderLogRow(log) {
+            const statusColors = {
+                success: 'bg-green-500/20 text-green-400 border-green-500/50',
+                failed: 'bg-red-500/20 text-red-400 border-red-500/50',
+                sandbox: 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+            };
+            
+            const toAddresses = JSON.parse(log.to_addresses);
+            const timestamp = new Date(log.timestamp).toLocaleString();
+            
+            return `
+                <tr class="hover:bg-slate-750">
+                    <td class="px-4 py-3 text-sm text-slate-300">${timestamp}</td>
+                    <td class="px-4 py-3 text-sm text-slate-300">${toAddresses[0]}</td>
+                    <td class="px-4 py-3 text-sm text-slate-300">${log.subject}</td>
+                    <td class="px-4 py-3 text-sm text-slate-300">${log.provider_name || 'N/A'}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 text-xs font-medium rounded border ${statusColors[log.status]}">
+                            ${log.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-300">${log.processing_time_ms.toFixed(2)}</td>
+                    <td class="px-4 py-3">
+                        <button onclick="viewLogDetail('${log.id}')" class="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+        
+        async function refreshLogs() {
+            await loadLogs();
+            await loadStats();
+            if (state.activeTab === 'logs') {
+                renderTabContent('logs');
+            }
+        }
+        
+        function toggleAutoRefresh() {
+            state.autoRefresh = document.getElementById('autoRefreshToggle').checked;
+            
+            if (state.autoRefresh) {
+                state.autoRefreshInterval = setInterval(refreshLogs, 5000);
+            } else {
+                if (state.autoRefreshInterval) {
+                    clearInterval(state.autoRefreshInterval);
+                }
+            }
+        }
+        
+        async function viewLogDetail(logId) {
+            try {
+                const log = await GatewayAPI.get(`/v1/logs/${logId}`);
+                
+                const toAddresses = JSON.parse(log.to_addresses);
+                const requestPayload = JSON.parse(log.request_payload);
+                const responsePayload = JSON.parse(log.response_payload);
+                
+                document.getElementById('modalContent').innerHTML = `
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-2xl font-bold">Email Log Details</h2>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-white text-2xl">×</button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div class="text-xs text-slate-400 mb-1">Log ID</div>
+                                    <div class="text-sm font-mono">${log.id}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-400 mb-1">Timestamp</div>
+                                    <div class="text-sm">${new Date(log.timestamp).toLocaleString()}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-400 mb-1">Status</div>
+                                    <div class="text-sm font-semibold">${log.status.toUpperCase()}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-400 mb-1">Processing Time</div>
+                                    <div class="text-sm">${log.processing_time_ms.toFixed(2)} ms</div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">To</div>
+                                <div class="text-sm">${toAddresses.join(', ')}</div>
+                            </div>
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">From</div>
+                                <div class="text-sm">${log.from_address}</div>
+                            </div>
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Subject</div>
+                                <div class="text-sm">${log.subject}</div>
+                            </div>
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Provider</div>
+                                <div class="text-sm">${log.provider_name || 'N/A'}</div>
+                            </div>
+                            
+                            ${log.error_trace ? `
+                                <div>
+                                    <div class="text-xs text-slate-400 mb-1">Error Trace</div>
+                                    <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${log.error_trace}</pre>
+                                </div>
+                            ` : ''}
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Request Payload</div>
+                                <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${JSON.stringify(requestPayload, null, 2)}</pre>
+                            </div>
+                            
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Response Payload</div>
+                                <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${JSON.stringify(responsePayload, null, 2)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('modalOverlay').classList.remove('hidden');
+            } catch (error) {
+                Toast.error('Failed to load log details');
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+        }
+        
+        // ============================================
+        // PROVIDERS TAB
+        // ============================================
+        
+        function renderProvidersTab() {
+            const providers = state.config?.providers || [];
+            
+            return `
+                <div class="mb-6">
+                    <button onclick="openProviderForm(null)" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors">
+                        + Add Provider
+                    </button>
+                </div>
+                
+                ${providers.length === 0 ? `
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-12 text-center">
+                        <div class="text-6xl mb-4">📮</div>
+                        <h3 class="text-xl font-semibold mb-2">No providers configured</h3>
+                        <p class="text-slate-400 mb-4">Add your first email provider to get started</p>
+                        <button onclick="openProviderForm(null)" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors">
+                            Add Provider
+                        </button>
+                    </div>
+                ` : `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${providers.map(provider => renderProviderCard(provider)).join('')}
+                    </div>
+                `}
+            `;
+        }
+        
+        function renderProviderCard(provider) {
+            const typeLabels = {
+                resend: 'Resend API',
+                mailtrap: 'Mailtrap API',
+                gmail: 'Gmail',
+                custom_smtp: 'Custom SMTP'
+            };
+            
+            const typeColors = {
+                resend: 'bg-purple-500/20 text-purple-400',
+                mailtrap: 'bg-green-500/20 text-green-400',
+                gmail: 'bg-red-500/20 text-red-400',
+                custom_smtp: 'bg-blue-500/20 text-blue-400'
+            };
+            
+            return `
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-2">${provider.name}</h3>
+                            <span class="px-2 py-1 text-xs font-medium rounded ${typeColors[provider.type]}">
+                                ${typeLabels[provider.type]}
+                            </span>
+                        </div>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" ${provider.enabled ? 'checked' : ''} 
+                                   onchange="toggleProvider('${provider.id}')"
+                                   class="w-5 h-5 rounded accent-indigo-500">
+                        </label>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="text-xs text-slate-400 mb-1">Weight</div>
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 bg-slate-700 rounded-full h-2">
+                                <div class="bg-indigo-500 h-2 rounded-full" style="width: ${provider.weight}%"></div>
+                            </div>
+                            <span class="text-sm font-semibold">${provider.weight}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="openProviderForm('${provider.id}')" 
+                                class="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors">
+                            Edit
+                        </button>
+                        <button onclick="deleteProvider('${provider.id}', '${provider.name}')" 
+                                class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded text-sm font-medium transition-colors">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function toggleProvider(providerId) {
+            try {
+                const provider = state.config.providers.find(p => p.id === providerId);
+                provider.enabled = !provider.enabled;
+                
+                await GatewayAPI.put(`/v1/config/providers/${providerId}`, provider);
+                await loadConfig();
+                
+                Toast.success(`Provider ${provider.enabled ? 'enabled' : 'disabled'}`);
+                renderTabContent('providers');
+            } catch (error) {
+                Toast.error('Failed to toggle provider');
+                await loadConfig();
+                renderTabContent('providers');
+            }
+        }
+        
+        async function deleteProvider(providerId, providerName) {
+            if (!confirm(`Delete provider "${providerName}"?`)) return;
+            
+            try {
+                await GatewayAPI.delete(`/v1/config/providers/${providerId}`);
+                await loadConfig();
+                
+                Toast.warning(`Provider "${providerName}" deleted`);
+                renderTabContent('providers');
+            } catch (error) {
+                Toast.error('Failed to delete provider');
+            }
+        }
+        
+        function openProviderForm(providerId) {
+            const provider = providerId ? state.config.providers.find(p => p.id === providerId) : null;
+            state.editingProvider = provider;
+            
+            document.getElementById('sidePanelContent').innerHTML = renderProviderForm(provider);
+            document.getElementById('sidePanel').classList.remove('hidden');
+            
+            // Setup type change listener
+            document.getElementById('providerType').addEventListener('change', (e) => {
+                updateProviderFormFields(e.target.value);
+            });
+            
+            // Trigger initial field update
+            if (provider) {
+                updateProviderFormFields(provider.type);
+            } else {
+                updateProviderFormFields('resend');
+            }
+        }
+        
+        function renderProviderForm(provider) {
+            const isEdit = !!provider;
+            
+            return `
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold">${isEdit ? 'Edit' : 'Add'} Provider</h2>
+                        <button onclick="closeSidePanel()" class="text-slate-400 hover:text-white text-2xl">×</button>
+                    </div>
+                    
+                    <form onsubmit="saveProvider(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Provider Name</label>
+                            <input type="text" id="providerName" value="${provider?.name || ''}" 
+                                   required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Provider Type</label>
+                            <select id="providerType" required 
+                                    class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                                <option value="resend" ${provider?.type === 'resend' ? 'selected' : ''}>Resend API</option>
+                                <option value="mailtrap" ${provider?.type === 'mailtrap' ? 'selected' : ''}>Mailtrap API</option>
+                                <option value="gmail" ${provider?.type === 'gmail' ? 'selected' : ''}>Gmail App Password</option>
+                                <option value="custom_smtp" ${provider?.type === 'custom_smtp' ? 'selected' : ''}>Custom SMTP Server</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Weight (%)</label>
+                            <input type="range" id="providerWeight" min="0" max="100" value="${provider?.weight || 100}" 
+                                   oninput="document.getElementById('weightValue').textContent = this.value"
+                                   class="w-full accent-indigo-500">
+                            <div class="text-right text-sm text-slate-400">
+                                <span id="weightValue">${provider?.weight || 100}</span>%
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="providerEnabled" ${provider?.enabled !== false ? 'checked' : ''} 
+                                       class="w-5 h-5 rounded accent-indigo-500">
+                                <span class="text-sm font-medium">Enabled</span>
+                            </label>
+                        </div>
+                        
+                        <div class="border-t border-slate-700 pt-4">
+                            <div id="providerCredentials">
+                                <!-- Dynamic fields will be inserted here -->
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 pt-4">
+                            <button type="submit" class="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors">
+                                ${isEdit ? 'Save Changes' : 'Add Provider'}
+                            </button>
+                            <button type="button" onclick="closeSidePanel()" 
+                                    class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+        
+        function updateProviderFormFields(type) {
+            const container = document.getElementById('providerCredentials');
+            const provider = state.editingProvider;
+            
+            if (type === 'resend' || type === 'mailtrap') {
+                container.innerHTML = `
+                    <div>
+                        <label class="block text-sm font-medium mb-2">API Key</label>
+                        <div class="relative">
+                            <input type="password" id="apiKey" value="${provider?.api_key || ''}" 
+                                   required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
+                            <button type="button" onclick="togglePasswordVisibility('apiKey')" 
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                                👁
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'gmail') {
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Gmail Address</label>
+                            <input type="email" id="gmailAddress" value="${provider?.gmail_address || ''}" 
+                                   required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">App Password</label>
+                            <div class="relative">
+                                <input type="password" id="gmailAppPassword" value="${provider?.gmail_app_password || ''}" 
+                                       required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
+                                <button type="button" onclick="togglePasswordVisibility('gmailAppPassword')" 
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                                    👁
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'custom_smtp') {
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">SMTP Host</label>
+                                <input type="text" id="smtpHost" value="${provider?.smtp_host || ''}" 
+                                       required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">SMTP Port</label>
+                                <input type="number" id="smtpPort" value="${provider?.smtp_port || 587}" 
+                                       required min="1" max="65535" class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Username</label>
+                            <input type="text" id="smtpUsername" value="${provider?.smtp_username || ''}" 
+                                   required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Password</label>
+                            <div class="relative">
+                                <input type="password" id="smtpPassword" value="${provider?.smtp_password || ''}" 
+                                       required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
+                                <button type="button" onclick="togglePasswordVisibility('smtpPassword')" 
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                                    👁
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="smtpUseTls" ${provider?.smtp_use_tls !== false ? 'checked' : ''} 
+                                       class="w-5 h-5 rounded accent-indigo-500">
+                                <span class="text-sm">Use TLS (STARTTLS)</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="smtpUseSsl" ${provider?.smtp_use_ssl ? 'checked' : ''} 
+                                       class="w-5 h-5 rounded accent-indigo-500">
+                                <span class="text-sm">Use SSL</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            field.type = field.type === 'password' ? 'text' : 'password';
+        }
+        
+        async function saveProvider(event) {
+            event.preventDefault();
+            
+            const type = document.getElementById('providerType').value;
+            const providerData = {
+                name: document.getElementById('providerName').value,
+                type: type,
+                weight: parseInt(document.getElementById('providerWeight').value),
+                enabled: document.getElementById('providerEnabled').checked
+            };
+            
+            // Add type-specific fields
+            if (type === 'resend' || type === 'mailtrap') {
+                providerData.api_key = document.getElementById('apiKey').value;
+            } else if (type === 'gmail') {
+                providerData.gmail_address = document.getElementById('gmailAddress').value;
+                providerData.gmail_app_password = document.getElementById('gmailAppPassword').value;
+            } else if (type === 'custom_smtp') {
+                providerData.smtp_host = document.getElementById('smtpHost').value;
+                providerData.smtp_port = parseInt(document.getElementById('smtpPort').value);
+                providerData.smtp_username = document.getElementById('smtpUsername').value;
+                providerData.smtp_password = document.getElementById('smtpPassword').value;
+                providerData.smtp_use_tls = document.getElementById('smtpUseTls').checked;
+                providerData.smtp_use_ssl = document.getElementById('smtpUseSsl').checked;
+            }
+            
+            try {
+                if (state.editingProvider) {
+                    // Update existing provider
+                    await GatewayAPI.put(`/v1/config/providers/${state.editingProvider.id}`, providerData);
+                    Toast.success('Provider updated successfully');
+                } else {
+                    // Add new provider
+                    await GatewayAPI.post('/v1/config/providers', providerData);
+                    Toast.success('Provider added successfully');
+                }
+                
+                await loadConfig();
+                closeSidePanel();
+                renderTabContent('providers');
+            } catch (error) {
+                Toast.error(`Failed to save provider: ${error.message}`);
+            }
+        }
+        
+        function closeSidePanel() {
+            document.getElementById('sidePanel').classList.add('hidden');
+            state.editingProvider = null;
+        }
+        
+        // ============================================
+        // ROUTING TAB
+        // ============================================
+        
+        function renderRoutingTab() {
+            const routing = state.config?.routing || { mode: 'smart', sandbox: false };
+            const providers = (state.config?.providers || []).filter(p => p.enabled);
+            
+            return `
+                <div class="space-y-6">
+                    <!-- Mode Selection -->
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4">Routing Mode</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onclick="setRoutingMode('manual')" 
+                                    class="p-6 rounded-lg border-2 transition-all ${routing.mode === 'manual' ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-600'}">
+                                <h4 class="text-lg font-semibold mb-2">Manual Load Balancing</h4>
+                                <p class="text-sm text-slate-400">You control the traffic split with weighted distribution</p>
+                            </button>
+                            <button onclick="setRoutingMode('smart')" 
+                                    class="p-6 rounded-lg border-2 transition-all ${routing.mode === 'smart' ? 'bg-indigo-600/20 border-indigo-500' : 'bg-slate-800 border-slate-700 hover:border-slate-600'}">
+                                <h4 class="text-lg font-semibold mb-2">Smart Failover</h4>
+                                <p class="text-sm text-slate-400">Automatic failover to next available provider</p>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Provider Order/Weights -->
+                    ${routing.mode === 'smart' ? renderSmartModeConfig(providers) : renderManualModeConfig(providers)}
+                </div>
+            `;
+        }
+        
+        function renderSmartModeConfig(providers) {
+            if (providers.length === 0) {
+                return `
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                        <p class="text-slate-400">No active providers. Enable at least one provider to configure routing.</p>
+                    </div>
+                `;
+            }
+            
+            const sorted = [...providers].sort((a, b) => b.weight - a.weight);
+            
+            return `
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                    <h4 class="text-lg font-semibold mb-4">Failover Order (by weight)</h4>
+                    <p class="text-sm text-slate-400 mb-4">Providers are tried in order of weight (highest first)</p>
+                    <div class="space-y-2">
+                        ${sorted.map((p, i) => `
+                            <div class="flex items-center gap-3 p-3 bg-slate-700 rounded">
+                                <span class="text-lg font-bold text-indigo-400">${i + 1}</span>
+                                <span class="flex-1">${p.name}</span>
+                                <span class="text-sm text-slate-400">Weight: ${p.weight}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderManualModeConfig(providers) {
+            if (providers.length === 0) {
+                return `
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                        <p class="text-slate-400">No active providers. Enable at least one provider to configure routing.</p>
+                    </div>
+                `;
+            }
+            
+            const totalWeight = providers.reduce((sum, p) => sum + p.weight, 0);
+            
+            return `
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                    <h4 class="text-lg font-semibold mb-4">Weight Distribution</h4>
+                    ${totalWeight !== 100 ? `
+                        <div class="bg-amber-500/20 border border-amber-500/50 rounded-lg p-3 mb-4">
+                            <span class="text-amber-400 text-sm">⚠ Weights sum to ${totalWeight}% (will be normalized automatically)</span>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Weight Visualizer -->
+                    <div class="mb-6">
+                        <div class="flex h-8 rounded-lg overflow-hidden">
+                            ${providers.map(p => `
+                                <div style="width: ${(p.weight / totalWeight) * 100}%" 
+                                     class="bg-indigo-500 hover:bg-indigo-400 transition-colors flex items-center justify-center text-xs font-semibold"
+                                     title="${p.name}: ${p.weight}%">
+                                    ${p.weight > 10 ? p.name : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <p class="text-sm text-slate-400 mb-4">Traffic is split randomly based on provider weights. A provider with weight 75 gets ~75% of emails.</p>
+                </div>
+            `;
+        }
+        
+        async function setRoutingMode(mode) {
+            try {
+                await GatewayAPI.post('/v1/config/routing', {
+                    mode: mode,
+                    sandbox: state.config.routing.sandbox
+                });
+                
+                await loadConfig();
+                Toast.success(`Routing mode set to ${mode}`);
+                renderTabContent('routing');
+            } catch (error) {
+                Toast.error('Failed to update routing mode');
+            }
+        }
+        
+        // ============================================
+        // TEST SEND TAB
+        // ============================================
+        
+        function renderTestTab() {
+            return `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Form -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                        <h3 class="text-xl font-semibold mb-4">Send Test Email</h3>
+                        
+                        <form onsubmit="sendTestEmail(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">From</label>
+                                <input type="email" id="testFrom" required 
+                                       placeholder="sender@example.com"
+                                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">To</label>
+                                <input type="email" id="testTo" required 
+                                       placeholder="recipient@example.com"
+                                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Subject</label>
+                                <input type="text" id="testSubject" required 
+                                       placeholder="Test email from gateway"
+                                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Body (Plain Text)</label>
+                                <textarea id="testBodyText" rows="4" 
+                                          placeholder="Plain text email body..."
+                                          class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Body (HTML)</label>
+                                <textarea id="testBodyHtml" rows="4" 
+                                          placeholder="<h1>HTML email body</h1>..."
+                                          class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors">
+                                Send via Gateway
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Response Panel -->
+                    <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
+                        <h3 class="text-xl font-semibold mb-4">Response</h3>
+                        <div id="testResponse" class="text-sm text-slate-400">
+                            <p>Response will appear here after sending...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function sendTestEmail(event) {
+            event.preventDefault();
+            
+            const from = document.getElementById('testFrom').value;
+            const to = document.getElementById('testTo').value;
+            const subject = document.getElementById('testSubject').value;
+            const bodyText = document.getElementById('testBodyText').value;
+            const bodyHtml = document.getElementById('testBodyHtml').value;
+            
+            if (!bodyText && !bodyHtml) {
+                Toast.error('Please provide at least one body type (text or HTML)');
+                return;
+            }
+            
+            const payload = {
+                from: from,
+                to: [to],
+                subject: subject
+            };
+            
+            if (bodyText) payload.body_text = bodyText;
+            if (bodyHtml) payload.body_html = bodyHtml;
+            
+            document.getElementById('testResponse').innerHTML = `
+                <div class="flex items-center gap-2 text-indigo-400">
+                    <div class="animate-spin">⟳</div>
+                    <span>Sending email...</span>
+                </div>
+            `;
+            
+            try {
+                const result = await GatewayAPI.post('/v1/send', payload);
+                
+                document.getElementById('testResponse').innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 text-green-400 text-lg font-semibold">
+                            <span>✓</span>
+                            <span>Email sent successfully!</span>
+                        </div>
+                        
+                        ${result.provider ? `
+                            <div class="p-3 bg-slate-700 rounded">
+                                <div class="text-xs text-slate-400 mb-1">Provider Used</div>
+                                <div class="font-semibold">${result.provider.name} (${result.provider.type})</div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="p-3 bg-slate-700 rounded">
+                            <div class="text-xs text-slate-400 mb-1">Processing Time</div>
+                            <div class="font-semibold">${result.processing_time_ms?.toFixed(2)} ms</div>
+                        </div>
+                        
+                        <div class="p-3 bg-slate-700 rounded">
+                            <div class="text-xs text-slate-400 mb-1">Status</div>
+                            <div class="font-semibold">${result.status.toUpperCase()}</div>
+                        </div>
+                        
+                        <pre class="p-3 bg-slate-900 rounded overflow-x-auto text-xs">${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+                
+                Toast.success(`Email sent via ${result.provider?.name || 'gateway'}`);
+                
+                // Refresh logs
+                await refreshLogs();
+            } catch (error) {
+                let errorMsg = error.message;
+                try {
+                    const errorObj = JSON.parse(error.message);
+                    errorMsg = JSON.stringify(errorObj, null, 2);
+                } catch (e) {}
+                
+                document.getElementById('testResponse').innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 text-red-400 text-lg font-semibold">
+                            <span>✕</span>
+                            <span>Send failed</span>
+                        </div>
+                        <pre class="p-3 bg-red-900/20 border border-red-500/50 rounded overflow-x-auto text-xs text-red-400">${errorMsg}</pre>
+                    </div>
+                `;
+                
+                Toast.error('Failed to send email', 0);
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
