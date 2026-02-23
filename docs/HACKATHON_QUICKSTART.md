@@ -13,8 +13,8 @@ No backstory. No theory. Pick your path and follow the steps.
 Not sure which to pick? Use this:
 
 Just testing / don't want to spam anyone  →  Path A (Sandbox)    ← 2 min
-Need real email delivery, have 5 min      →  Path B (Resend)     ← recommended
-Already have a Gmail account              →  Path C (Gmail)
+Need real email delivery (and have a domain), have 5 min      →  Path B (Resend)     ← recommended for people with a domain
+Already have a Gmail account              →  Path C (Gmail) ← recommended for people not having domain
 Don't want to install Python              →  Path D (Docker)     ← 1 min
 Need a shared URL for the whole team      →  Path E (Render / Railway)  ← 5 min
 ```
