@@ -89,6 +89,13 @@ async def serve_dashboard():
     return FileResponse(dashboard_path)
 
 
+# Serve favicon
+@app.get("/favicon.jpg", include_in_schema=False)
+async def serve_favicon():
+    favicon_path = Path(__file__).parent.parent / "frontend" / "favicon.jpg"
+    return FileResponse(favicon_path, media_type="image/jpeg")
+
+
 # Health check endpoint
 @app.get("/api/health")
 async def health_check():
