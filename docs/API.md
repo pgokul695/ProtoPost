@@ -4,7 +4,7 @@
 
 # API Reference
 
-ProtoPost exposes a simple HTTP API. There is no authentication — keep the server URL private or restrict access at the network level if deployed to a public host.
+ProtoPost exposes a simple HTTP API. Authentication is **off by default** for local development. When hosting publicly, enable bearer-token protection by setting the `AUTH_TOKEN` environment variable — see the [Authentication](#authentication) section below and [docs/AUTH.md](AUTH.md) for integration guidance.
 
 ---
 
@@ -567,6 +567,7 @@ curl -X POST http://localhost:8000/api/send \
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Full integration guide: storing the token in env vars, Python / JS / Node examples
 - [docs/PROVIDERS.md](PROVIDERS.md) — Provider-specific fields for POST /api/config/providers
 - [docs/SANDBOX.md](SANDBOX.md) — What the sandbox response means
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Fixing common 502 / 422 errors

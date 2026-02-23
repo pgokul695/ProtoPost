@@ -168,7 +168,47 @@
             </div>
         </div>
     </header>
-    
+
+    <!-- Auth Token Modal -->
+    <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <!-- Backdrop -->
+        <div id="authModalBackdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="AuthToken.closeModal()"></div>
+        <!-- Dialog -->
+        <div class="relative bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <!-- 401 help banner (shown only on 401) -->
+            <div id="authModal401Banner" class="hidden mb-4 flex gap-3 items-start bg-amber-900/40 border border-amber-700/60 rounded-lg px-4 py-3 text-sm">
+                <span class="text-amber-400 text-base leading-tight mt-0.5">⚠</span>
+                <div class="text-amber-200 leading-snug">
+                    The server has <strong>AUTH_TOKEN</strong> enabled. Enter the token that was set
+                    on the server (env var <code class="bg-slate-700 px-1 rounded text-xs">AUTH_TOKEN</code>).
+                    <a href="https://github.com/pgokul695/ProtoPost/blob/main/docs/AUTH.md"
+                       target="_blank" rel="noopener"
+                       class="block mt-1.5 text-amber-400 underline hover:text-amber-300">
+                        How to find / set your token →
+                    </a>
+                </div>
+            </div>
+            <!-- Title -->
+            <h2 id="authModalTitle" class="text-white font-semibold text-base mb-4">Auth Token</h2>
+            <!-- Input -->
+            <input id="authModalInput" type="password"
+                placeholder="Paste token here…"
+                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono">
+            <p class="text-xs text-slate-500 mt-2">Leave blank to clear a saved token.</p>
+            <!-- Buttons -->
+            <div class="flex justify-end gap-2 mt-5">
+                <button onclick="AuthToken.closeModal()"
+                    class="px-4 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="AuthToken.saveModal()"
+                    class="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-6 py-8">
         
@@ -260,8 +300,8 @@
                     const response = await fetch(`${this.base}${path}`, options);
                     
                     if (response.status === 401) {
-                        AuthToken.prompt('Server requires an auth token. Enter it below:');
-                        throw new Error('Unauthorized — enter your AUTH_TOKEN in the lock button.');
+                        await AuthToken.prompt({ is401: true });
+                        throw new Error('Unauthorized — enter your AUTH_TOKEN and retry.');
                     }
 
                     if (!response.ok) {
@@ -326,11 +366,37 @@
                 }
             },
 
-            prompt(message = 'Enter your AUTH_TOKEN (leave blank to clear):') {
-                const current = this.get();
-                const token = window.prompt(message, current);
-                if (token === null) return; // cancelled
-                this.set(token.trim());
+            _resolve: null,
+
+            prompt({ is401 = false } = {}) {
+                return new Promise((resolve) => {
+                    this._resolve = resolve;
+                    const modal   = document.getElementById('authModal');
+                    const banner  = document.getElementById('authModal401Banner');
+                    const title   = document.getElementById('authModalTitle');
+                    const input   = document.getElementById('authModalInput');
+                    banner.classList.toggle('hidden', !is401);
+                    title.textContent = is401 ? 'Authentication Required' : 'Auth Token';
+                    input.value = this.get();
+                    modal.classList.remove('hidden');
+                    // focus after transition
+                    setTimeout(() => input.focus(), 50);
+                    // allow Enter to save
+                    input.onkeydown = (e) => { if (e.key === 'Enter') this.saveModal(); };
+                });
+            },
+
+            saveModal() {
+                const input = document.getElementById('authModalInput');
+                const token = (input.value || '').trim();
+                this.set(token);
+                this.closeModal();
+                if (this._resolve) { this._resolve(token); this._resolve = null; }
+            },
+
+            closeModal() {
+                document.getElementById('authModal').classList.add('hidden');
+                if (this._resolve) { this._resolve(null); this._resolve = null; }
             },
 
             init() {
@@ -861,7 +927,7 @@
                 
                 // Show walkthrough launcher for guided providers (only when adding new)
                 if (!provider) {
-                    if (selectedType === 'gmail' || selectedType === 'resend') {
+                    if (selectedType === 'gmail' || selectedType === 'resend' || selectedType === 'mailtrap') {
                         showWalkthroughLauncher(selectedType);
                     } else {
                         hideWalkthroughLauncher();
@@ -881,7 +947,7 @@
             } else {
                 // New provider - check if wizard should show
                 const initialType = document.getElementById('providerType').value;
-                if (initialType === 'gmail' || initialType === 'resend') {
+                if (initialType === 'gmail' || initialType === 'resend' || initialType === 'mailtrap') {
                     showWalkthroughLauncher(initialType);
                 } else {
                     updateProviderFormFields(initialType);
@@ -910,9 +976,9 @@
                             <label class="block text-sm font-medium mb-2">Provider Type</label>
                             <select id="providerType" required 
                                     class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
+                                <option value="gmail" ${provider?.type === 'gmail' ? 'selected' : ''}>Gmail App Password</option>
                                 <option value="resend" ${provider?.type === 'resend' ? 'selected' : ''}>Resend API</option>
                                 <option value="mailtrap" ${provider?.type === 'mailtrap' ? 'selected' : ''}>Mailtrap API</option>
-                                <option value="gmail" ${provider?.type === 'gmail' ? 'selected' : ''}>Gmail App Password</option>
                                 <option value="custom_smtp" ${provider?.type === 'custom_smtp' ? 'selected' : ''}>Custom SMTP Server</option>
                             </select>
                         </div>
@@ -962,7 +1028,7 @@
         function showWalkthroughLauncher(providerType) {
             const container = document.getElementById('providerCredentials');
             state.wizard.provider = providerType;
-            state.wizard.totalSteps = providerType === 'gmail' ? 5 : 4;
+            state.wizard.totalSteps = providerType === 'gmail' ? 5 : 4; // resend=4, mailtrap=4
             
             container.innerHTML = `
                 <div class="bg-indigo-900/30 border-2 border-indigo-500/50 rounded-lg p-6">
@@ -1116,6 +1182,8 @@ ${content}</div>
                 return getGmailWizardStep(step);
             } else if (provider === 'resend') {
                 return getResendWizardStep(step);
+            } else if (provider === 'mailtrap') {
+                return getMailtrapWizardStep(step);
             }
         }
         
@@ -1296,6 +1364,84 @@ ${content}</div>
             return steps[step];
         }
         
+        function getMailtrapWizardStep(step) {
+            const steps = {
+                1: {
+                    icon: '📋',
+                    title: 'Create your Mailtrap account',
+                    body: `
+                        <p>Mailtrap Email Sending is a transactional email API — not to be confused with their Email Testing inbox. Sign up for free; <strong>1,000 emails/month included</strong> with no credit card required.</p>
+                    `,
+                    callout: {
+                        type: 'info',
+                        content: `Free tier:   1,000 emails / month\n             Transactional + bulk sending\n             Free DKIM / SPF hosting`
+                    },
+                    actionButton: {
+                        label: 'Sign up for free',
+                        href: 'https://mailtrap.io/register/signup'
+                    },
+                    subNote: 'Already have an account? Skip to the next step.'
+                },
+                2: {
+                    icon: '🌐',
+                    title: 'Add a verified sending domain',
+                    body: `
+                        <p>In the Mailtrap dashboard, open <strong>Email Sending → Sending Domains</strong> and add your domain. Mailtrap gives you the DNS records to add (DKIM + SPF) — usually live within a few minutes.</p>
+                    `,
+                    callout: {
+                        type: 'warning',
+                        content: `⚠  No domain yet?\n   Use the sandbox address Mailtrap provides during onboarding.\n   Go to:  Sending Domains → click  "Add Domain"  to start.`
+                    },
+                    actionButton: {
+                        label: 'Open Sending Domains',
+                        href: 'https://mailtrap.io/sending/domains'
+                    }
+                },
+                3: {
+                    icon: '🗝️',
+                    title: 'Get your API Token',
+                    body: `
+                        <p>In the Mailtrap dashboard, go to <strong>Email Sending → API Tokens</strong> (or via <strong>Settings</strong>) and click <strong>Add Token</strong>. Give it a name like <strong>Email Gateway</strong>.</p>
+                    `,
+                    callout: {
+                        type: 'info',
+                        content: `Dashboard → Email Sending → API Tokens\n           → Add Token\nName:        Email Gateway`
+                    },
+                    actionButton: {
+                        label: 'Open API Tokens',
+                        href: 'https://mailtrap.io/sending/api-tokens'
+                    },
+                    subNote: 'Your token is shown once — copy it immediately after clicking Create.'
+                },
+                4: {
+                    icon: '✅',
+                    title: 'Paste your API Token',
+                    body: `
+                        <p>Paste the token you just copied below.</p>
+                    `,
+                    callout: {
+                        type: 'success',
+                        content: `Looks like:   a1b2c3d4e5f6... (long hex string)`
+                    },
+                    inlineInputs: `
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium mb-2 text-white">API Token</label>
+                            <div class="relative">
+                                <input type="password" id="wizardMailtrapApiKey" required 
+                                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10 text-white"
+                                       placeholder="Paste your Mailtrap API token...">
+                                <button type="button" onclick="togglePasswordVisibility('wizardMailtrapApiKey')" 
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                                    👁
+                                </button>
+                            </div>
+                        </div>
+                    `
+                }
+            };
+            return steps[step];
+        }
+
         function navigateWizard(direction) {
             const newStep = state.wizard.currentStep + direction;
             if (newStep >= 1 && newStep <= state.wizard.totalSteps) {
@@ -1354,6 +1500,20 @@ ${content}</div>
                 }
                 
                 providerData.api_key = apiKey;
+            } else if (provider === 'mailtrap') {
+                const apiKey = document.getElementById('wizardMailtrapApiKey')?.value;
+
+                if (!apiKey) {
+                    const keyInput = document.getElementById('wizardMailtrapApiKey');
+                    if (keyInput) {
+                        keyInput.classList.add('border-red-500', 'shake');
+                        setTimeout(() => keyInput.classList.remove('shake'), 300);
+                    }
+                    Toast.error('Please enter your API token');
+                    return;
+                }
+
+                providerData.api_key = apiKey;
             }
             
             try {
@@ -1361,7 +1521,8 @@ ${content}</div>
                 
                 const successMessages = {
                     gmail: '✓ Gmail provider added successfully',
-                    resend: '✓ Resend provider added successfully'
+                    resend: '✓ Resend provider added successfully',
+                    mailtrap: '✓ Mailtrap provider added successfully'
                 };
                 
                 Toast.success(successMessages[provider]);
@@ -1776,7 +1937,7 @@ ${content}</div>
                     </div>
                 `;
                 
-                Toast.error('Failed to send email', 0);
+                Toast.error('Failed to send email');
             }
         }
         

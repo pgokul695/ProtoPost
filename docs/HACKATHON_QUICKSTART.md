@@ -160,6 +160,10 @@ git add . && git commit -m "deploy" && git push
 In **Environment**, add:
 - `CONFIG_PATH` = `/data/config.json`
 - `DB_PATH` = `/data/emails.db`
+- `AUTH_TOKEN` = any secret string — **recommended** to protect your public URL
+
+> [!TIP]
+> Generate a token: `openssl rand -hex 16`. Enter it in the dashboard 🔓 lock icon on first visit — it's stored automatically.
 
 Click **Save Changes**.
 
@@ -173,7 +177,10 @@ Render gives you a URL like `https://protopost.onrender.com`. Open it, add your 
 
 ## Integrate with your app — minimum code
 
-Replace `http://localhost:8000/api/send` with your URL if you changed the port.
+Replace `http://localhost:8000/api/send` with your server URL if different.
+
+> [!NOTE]
+> **Using AUTH_TOKEN?** Add `Authorization: Bearer <your-token>` to every request. See examples below and [docs/API.md](API.md#authentication) for full details.
 
 ### Python
 
@@ -181,12 +188,15 @@ Replace `http://localhost:8000/api/send` with your URL if you changed the port.
 import requests
 
 def send_email(to: str, subject: str, body: str) -> None:
-    requests.post("http://localhost:8000/api/send", json={
-        "from": "you@example.com",
-        "to": [to],
-        "subject": subject,
-        "body_text": body,
-    }).raise_for_status()
+    requests.post("http://localhost:8000/api/send",
+        headers={"Authorization": "Bearer YOUR_TOKEN"},  # omit if AUTH_TOKEN not set
+        json={
+            "from": "you@example.com",
+            "to": [to],
+            "subject": subject,
+            "body_text": body,
+        }
+    ).raise_for_status()
 ```
 
 ### JavaScript
@@ -195,7 +205,10 @@ def send_email(to: str, subject: str, body: str) -> None:
 async function sendEmail(to, subject, body) {
     const res = await fetch("http://localhost:8000/api/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer YOUR_TOKEN",  // omit if AUTH_TOKEN not set
+        },
         body: JSON.stringify({ from: "you@example.com", to: [to], subject, body_text: body }),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -213,6 +226,8 @@ const sendEmail = (to, subject, body) =>
         to: [to],
         subject,
         body_text: body,
+    }, {
+        headers: { "Authorization": "Bearer YOUR_TOKEN" },  // omit if AUTH_TOKEN not set
     });
 ```
 
@@ -243,6 +258,7 @@ Run through this before you present:
 - [ ] Outbox tab shows `success` status (not `sandbox`)
 - [ ] Server is running (`uvicorn` command active in terminal)
 - [ ] Your app's email calls point to `http://localhost:8000/api/send`
+- [ ] If using `AUTH_TOKEN`: token is entered in the dashboard 🔒 lock icon and your app sends the `Authorization` header
 - [ ] You know how to check the Outbox tab if something fails during the demo
 
 ---
@@ -254,10 +270,12 @@ Run through this before you present:
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Full auth integration guide (token generation, app env vars, code examples)
 - [docs/PROVIDERS.md](PROVIDERS.md) — Full provider setup guides
 - [docs/SANDBOX.md](SANDBOX.md) — Everything about Sandbox Mode
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — If something isn't working
 - [docs/API.md](API.md) — All endpoints and integration examples
+- [docs/API.md](API.md#authentication) — Auth token setup and the `Authorization` header
 - [docs/DOCKER.md](DOCKER.md) — Run with Docker (no Python install needed)
 - [docs/HOSTING.md](HOSTING.md) — All cloud hosting options compared
 - [docs/RENDER.md](RENDER.md) — Deploy to Render (persistent cloud)

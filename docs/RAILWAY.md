@@ -196,6 +196,7 @@ Railway runs the full Docker container continuously. The volume is always mounte
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Token generation, app integration examples (Python / JS / Node)
 - [docs/HOSTING.md](HOSTING.md) — Compare all hosting options
 - [docs/RENDER.md](RENDER.md) — Alternative cloud host with the same persistence model
 - [docs/DOCKER.md](DOCKER.md) — Run locally with Docker

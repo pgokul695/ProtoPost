@@ -8,6 +8,8 @@ services:
     environment:
       - CONFIG_PATH=/data/config.json
       - DB_PATH=/data/emails.db
+      # Optional: Set an authentication token for API access 
+      #- AUTH_TOKEN=your-secret-token
     restart: unless-stopped
 
 volumes:

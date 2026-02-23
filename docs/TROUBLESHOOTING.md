@@ -543,6 +543,7 @@ For Docker, use the `-e` flag or the `environment:` block in `docker-compose.yml
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Full auth integration guide (token generation, app env vars, code examples)
 - [docs/PROVIDERS.md](PROVIDERS.md) — Provider-specific setup steps
 - [docs/SANDBOX.md](SANDBOX.md) — Sandbox Mode reference
 - [docs/API.md](API.md) — Full error response formats

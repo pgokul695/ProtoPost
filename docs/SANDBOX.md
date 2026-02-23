@@ -10,6 +10,9 @@ Sandbox Mode is the single most important feature to understand before you start
 
 ## What Sandbox Mode does
 
+> [!NOTE]
+> **Using AUTH_TOKEN?** Add `-H "Authorization: Bearer <your-token>"` to every `curl` command shown in this doc. The dashboard handles auth automatically via the 🔒 lock icon. See [docs/API.md](API.md#authentication).
+
 When Sandbox Mode is on:
 
 1. Your app calls `POST /api/send` as normal
@@ -60,6 +63,7 @@ Click the **Sandbox Mode** toggle in the ProtoPost header. It saves immediately.
 ```bash
 curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \  # omit if AUTH_TOKEN not set
   -d '{"mode": "smart", "sandbox": true}'
 ```
 
@@ -146,6 +150,7 @@ Or via API:
 ```bash
 curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \  # omit if AUTH_TOKEN not set
   -d '{"mode": "smart", "sandbox": false}'
 ```
 
@@ -153,6 +158,8 @@ curl -X POST http://localhost:8000/api/config/routing \
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Full auth integration guide (token generation, app env vars, code examples)
 - [docs/ROUTING.md](ROUTING.md) — How routing modes interact with Sandbox Mode
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — "Email sends return 200 but nothing arrives"
 - [docs/HACKATHON_QUICKSTART.md](HACKATHON_QUICKSTART.md) — Path A: Testing without real sends
+- [docs/API.md](API.md#authentication) — Auth token setup

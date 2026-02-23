@@ -147,6 +147,7 @@ ProtoPost uses SQLite + a JSON config file on disk. Any platform that doesn't pr
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Token generation, app integration examples (Python / JS / Node)
 - [docs/RENDER.md](RENDER.md) — Full Render deployment guide
 - [docs/RAILWAY.md](RAILWAY.md) — Full Railway deployment guide
 - [docs/DOCKER.md](DOCKER.md) — Local and self-hosted Docker guide

@@ -8,6 +8,9 @@ ProtoPost has two routing modes: **Manual Load Balancing** and **Smart Failover*
 
 Read the Sandbox section first — it's the most important thing to understand before your demo.
 
+> [!NOTE]
+> **Using AUTH_TOKEN?** Add `-H "Authorization: Bearer <your-token>"` to every `curl` command shown in this doc. The dashboard handles auth automatically via the 🔒 lock icon. See [docs/API.md](API.md#authentication).
+
 ---
 
 ## Read this first — Sandbox Mode
@@ -28,6 +31,7 @@ Option 2 — API:
 ```bash
 curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \  # omit if AUTH_TOKEN not set
   -d '{"mode": "smart", "sandbox": true}'
 ```
 
@@ -122,11 +126,13 @@ All failed? → Return 502 with error details
 # Switch to Smart Failover
 curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \  # omit if AUTH_TOKEN not set
   -d '{"mode": "smart", "sandbox": false}'
 
 # Switch to Manual Load Balancing
 curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \  # omit if AUTH_TOKEN not set
   -d '{"mode": "manual", "sandbox": false}'
 ```
 
@@ -187,6 +193,8 @@ Traffic splits 50/50 across both accounts. You effectively double your daily sen
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Full auth integration guide (token generation, app env vars, code examples)
 - [docs/SANDBOX.md](SANDBOX.md) — Full Sandbox Mode reference
 - [docs/PROVIDERS.md](PROVIDERS.md) — How to set up each provider
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — What to do when routing fails
+- [docs/API.md](API.md#authentication) — Auth token setup

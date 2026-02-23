@@ -207,6 +207,7 @@ Unlike Vercel or other serverless platforms, Render keeps the container running.
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Token generation, app integration examples (Python / JS / Node)
 - [docs/HOSTING.md](HOSTING.md) — Compare all hosting options
 - [docs/RAILWAY.md](RAILWAY.md) — Alternative cloud host with the same persistence model
 - [docs/DOCKER.md](DOCKER.md) — Run locally with Docker

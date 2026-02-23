@@ -1,5 +1,3 @@
-<!-- Last updated: when this project was generated -->
-
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Platform](https://img.shields.io/badge/Works%20on-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
@@ -169,6 +167,7 @@ The server reads `config.json` on every request. Change a provider in the dashbo
 | [docs/HOSTING.md](docs/HOSTING.md) | All cloud hosting options compared (Render, Railway, Fly.io, VPS, and more) |
 | [docs/RENDER.md](docs/RENDER.md) | Step-by-step guide: deploy to Render with persistent storage |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Step-by-step guide: deploy to Railway with persistent storage |
+| [docs/AUTH.md](docs/AUTH.md) | Authentication — generating tokens, app integration (Python / JS / Node examples) |
 
 ---
 

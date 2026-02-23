@@ -196,6 +196,7 @@ Then in your app code, call `http://protopost:8000/api/send` instead of `localho
 
 ## See Also
 
+- [docs/AUTH.md](AUTH.md) — Token generation, app integration examples (Python / JS / Node)
 - [docs/HOSTING.md](HOSTING.md) — Compare all cloud hosting options
 - [docs/RENDER.md](RENDER.md) — Deploy to Render (shared / persistent cloud access)
 - [docs/RAILWAY.md](RAILWAY.md) — Deploy to Railway (shared / persistent cloud access)

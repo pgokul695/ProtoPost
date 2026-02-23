@@ -155,11 +155,10 @@ async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
         message["Reply-To"] = payload.reply_to
     
     try:
-        # Connect to Gmail SMTP server
-        smtp_client = aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587)
+        # Connect to Gmail SMTP server (port 587 + STARTTLS)
+        smtp_client = aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587, start_tls=True)
         
         await smtp_client.connect()
-        await smtp_client.starttls()
         await smtp_client.login(provider.gmail_address, provider.gmail_app_password)
         
         # Send email
@@ -218,24 +217,21 @@ async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dic
         use_ssl = provider.smtp_use_ssl
         
         if use_ssl:
-            # Direct SSL/TLS connection
+            # Direct SSL/TLS connection (e.g. port 465)
             smtp_client = aiosmtplib.SMTP(
                 hostname=provider.smtp_host,
                 port=provider.smtp_port,
                 use_tls=True
             )
         else:
-            # Plain connection (may upgrade with STARTTLS)
+            # STARTTLS connection (e.g. port 587) — let aiosmtplib handle it
             smtp_client = aiosmtplib.SMTP(
                 hostname=provider.smtp_host,
-                port=provider.smtp_port
+                port=provider.smtp_port,
+                start_tls=use_tls
             )
         
         await smtp_client.connect()
-        
-        # Use STARTTLS if requested and not already using SSL
-        if use_tls and not use_ssl:
-            await smtp_client.starttls()
         
         # Authenticate
         await smtp_client.login(provider.smtp_username, provider.smtp_password)
