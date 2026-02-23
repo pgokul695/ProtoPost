@@ -1,4 +1,4 @@
-<!-- Last updated: when this project was generated -->
+<!-- Last updated: February 2026 -->
 
 [← Back to README](../README.md)
 
@@ -26,7 +26,7 @@ Option 1 — Dashboard: Toggle the **Sandbox Mode** switch in the header bar.
 Option 2 — API:
 
 ```bash
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "smart", "sandbox": true}'
 ```
@@ -35,7 +35,7 @@ curl -X POST http://localhost:8000/v1/config/routing \
 
 - The toggle in the header is lit up
 - Emails in the Outbox tab show `[sandbox]` as the provider, not a real provider name
-- The response from `POST /v1/send` has `"status": "sandbox"` instead of `"status": "success"`
+- The response from `POST /api/send` has `"status": "sandbox"` instead of `"status": "success"`
 
 See [docs/SANDBOX.md](SANDBOX.md) for the full Sandbox Mode guide.
 
@@ -120,12 +120,12 @@ All failed? → Return 502 with error details
 
 ```bash
 # Switch to Smart Failover
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "smart", "sandbox": false}'
 
 # Switch to Manual Load Balancing
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "manual", "sandbox": false}'
 ```

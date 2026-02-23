@@ -3,8 +3,9 @@ FastAPI application for Hackathon Email Gateway.
 Main entry point with all API endpoints and frontend serving.
 """
 
+import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -23,6 +24,27 @@ app = FastAPI(
     description="A local proxy server for routing and mocking outbound emails",
     version="1.0.0"
 )
+
+# ---------------------------------------------------------------------------
+# Optional bearer auth — enabled only when AUTH_TOKEN env var is set.
+# If not set, all requests pass through freely (local dev default).
+# ---------------------------------------------------------------------------
+_AUTH_TOKEN: str | None = os.getenv("AUTH_TOKEN")
+
+
+async def require_auth(
+    authorization: str | None = Header(default=None)
+) -> None:
+    """FastAPI dependency — validates Bearer token when AUTH_TOKEN is configured."""
+    if not _AUTH_TOKEN:
+        return  # Auth disabled — no env var set
+    if authorization != f"Bearer {_AUTH_TOKEN}":
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized. Provide a valid Bearer token in the Authorization header.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 
 # CORS - Allow all origins (local developer tool)
 app.add_middleware(
@@ -68,7 +90,7 @@ async def serve_dashboard():
 
 
 # Health check endpoint
-@app.get("/v1/health")
+@app.get("/api/health")
 async def health_check():
     """
     Health check endpoint.
@@ -90,7 +112,7 @@ async def health_check():
 
 
 # Email sending endpoint
-@app.post("/v1/send")
+@app.post("/api/send", dependencies=[Depends(require_auth)])
 async def send_email(payload: EmailPayload):
     """
     Send an email through the gateway.
@@ -125,7 +147,7 @@ async def send_email(payload: EmailPayload):
 
 
 # Get email logs with pagination
-@app.get("/v1/logs")
+@app.get("/api/logs", dependencies=[Depends(require_auth)])
 async def get_logs(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of logs to return"),
     offset: int = Query(0, ge=0, description="Number of logs to skip")
@@ -156,7 +178,7 @@ async def get_logs(
 
 
 # Get single log by ID
-@app.get("/v1/logs/{log_id}")
+@app.get("/api/logs/{log_id}", dependencies=[Depends(require_auth)])
 async def get_log_detail(log_id: str):
     """
     Retrieve detailed information for a single log entry.
@@ -187,7 +209,7 @@ async def get_log_detail(log_id: str):
 
 
 # Get aggregate statistics
-@app.get("/v1/stats")
+@app.get("/api/stats", dependencies=[Depends(require_auth)])
 async def get_stats():
     """
     Get aggregate statistics across all logs.
@@ -206,7 +228,7 @@ async def get_stats():
 
 
 # Get current configuration
-@app.get("/v1/config")
+@app.get("/api/config", dependencies=[Depends(require_auth)])
 async def get_config():
     """
     Get current application configuration.
@@ -225,7 +247,7 @@ async def get_config():
 
 
 # Update entire configuration
-@app.put("/v1/config")
+@app.put("/api/config", dependencies=[Depends(require_auth)])
 async def update_config(new_config: AppConfig):
     """
     Update the entire application configuration.
@@ -247,7 +269,7 @@ async def update_config(new_config: AppConfig):
 
 
 # Add a new provider
-@app.post("/v1/config/providers")
+@app.post("/api/config/providers", dependencies=[Depends(require_auth)])
 async def add_provider(provider: Provider):
     """
     Add a new email provider to the configuration.
@@ -286,7 +308,7 @@ async def add_provider(provider: Provider):
 
 
 # Update an existing provider
-@app.put("/v1/config/providers/{provider_id}")
+@app.put("/api/config/providers/{provider_id}", dependencies=[Depends(require_auth)])
 async def update_provider(provider_id: str, updated_provider: Provider):
     """
     Update an existing provider by ID.
@@ -337,7 +359,7 @@ async def update_provider(provider_id: str, updated_provider: Provider):
 
 
 # Delete a provider
-@app.delete("/v1/config/providers/{provider_id}")
+@app.delete("/api/config/providers/{provider_id}", dependencies=[Depends(require_auth)])
 async def delete_provider(provider_id: str):
     """
     Delete a provider by ID.
@@ -377,7 +399,7 @@ async def delete_provider(provider_id: str):
 
 
 # Update routing configuration
-@app.post("/v1/config/routing")
+@app.post("/api/config/routing", dependencies=[Depends(require_auth)])
 async def update_routing(routing: RoutingConfig):
     """
     Update routing configuration (mode and sandbox).

@@ -3,6 +3,7 @@ SQLite database manager for email logs.
 Uses WAL mode for concurrent read access during high throughput.
 """
 
+import os
 import sqlite3
 import threading
 from datetime import datetime
@@ -209,5 +210,5 @@ class DatabaseManager:
             self._connection = None
 
 
-# Global instance
-database_manager = DatabaseManager()
+# Global instance — honours DB_PATH env var for Docker / Render deployments
+database_manager = DatabaseManager(os.getenv("DB_PATH", "./emails.db"))

@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.db
+*.db-wal
+*.db-shm
+config.json
+*.tmp
+.git/
+.gitignore
+.env
+docs/
+*.md
+api/

@@ -1,5 +1,4 @@
-<!-- Last updated: when this project was generated -->
-
+<!-- Last updated: February 2026 -->
 [← Back to README](../README.md)
 
 # 🚀 Hackathon Quick Start — Email Working in 5 Minutes
@@ -16,6 +15,8 @@ Not sure which to pick? Use this:
 Just testing / don't want to spam anyone  →  Path A (Sandbox)    ← 2 min
 Need real email delivery, have 5 min      →  Path B (Resend)     ← recommended
 Already have a Gmail account              →  Path C (Gmail)
+Don't want to install Python              →  Path D (Docker)     ← 1 min
+Need a shared URL for the whole team      →  Path E (Render / Railway)  ← 5 min
 ```
 
 ---
@@ -36,7 +37,7 @@ Go to **http://localhost:8000**
 
 Click the **Sandbox Mode** toggle in the top-right of the header bar.
 
-**Done.** Your app can now call `POST /v1/send` and it will work. Emails are captured in the Outbox tab, not sent. Nothing needs a provider configured.
+**Done.** Your app can now call `POST /api/send` and it will work. Emails are captured in the Outbox tab, not sent. Nothing needs a provider configured.
 
 > [!TIP]
 > Sandbox Mode returns HTTP 200 just like a real send. Your app doesn't need special error handling. Test everything normally.
@@ -111,9 +112,68 @@ Use the **Test Send** tab. Set the `from` address to your Gmail address.
 
 ---
 
+## Path D — Docker (1 minute, no Python needed)
+
+If you have Docker installed and don't want to deal with Python environments, this is the fastest path to a running server.
+
+### Step 1 — Build and start
+
+```bash
+docker compose up -d
+```
+
+### Step 2 — Open the dashboard
+
+Visit **http://localhost:8000** — the dashboard is ready.
+
+Provider config and email logs are saved in a Docker volume and survive restarts.
+
+➜ Full Docker reference: [docs/DOCKER.md](DOCKER.md)
+
+---
+
+## Path E — Render / Railway (5 minutes, shared team URL + persistent storage)
+
+Use this if you want the whole team to share one ProtoPost URL with provider config and logs that stick around permanently. Both platforms work identically for ProtoPost — pick whichever you prefer. Full guides: [docs/RENDER.md](RENDER.md) · [docs/RAILWAY.md](RAILWAY.md) · [docs/HOSTING.md](HOSTING.md)
+
+### Step 1 — Push your code to GitHub
+
+```bash
+git add . && git commit -m "deploy" && git push
+```
+
+### Step 2 — Create a Web Service on Render
+
+1. Go to [dashboard.render.com](https://dashboard.render.com) → **New → Web Service**
+2. Connect your GitHub repo
+3. Set **Runtime** to **Docker**, leave everything else as default
+4. Click **Deploy Web Service**
+
+### Step 3 — Add a persistent disk
+
+1. In the service page, click **Disks → Add Disk**
+2. Set **Mount Path** to `/data`, size to `1 GB`
+3. Click **Save** (Render redeploys automatically)
+
+### Step 4 — Set environment variables
+
+In **Environment**, add:
+- `CONFIG_PATH` = `/data/config.json`
+- `DB_PATH` = `/data/emails.db`
+
+Click **Save Changes**.
+
+### Step 5 — Open the dashboard and add a provider
+
+Render gives you a URL like `https://protopost.onrender.com`. Open it, add your provider under **Providers**, and send a test via **Test Send**. Config is saved to the persistent disk and survives every future redeploy.
+
+➜ Full Render reference: [docs/RENDER.md](RENDER.md)
+
+---
+
 ## Integrate with your app — minimum code
 
-Replace `http://localhost:8000/v1/send` with your URL if you changed the port.
+Replace `http://localhost:8000/api/send` with your URL if you changed the port.
 
 ### Python
 
@@ -121,7 +181,7 @@ Replace `http://localhost:8000/v1/send` with your URL if you changed the port.
 import requests
 
 def send_email(to: str, subject: str, body: str) -> None:
-    requests.post("http://localhost:8000/v1/send", json={
+    requests.post("http://localhost:8000/api/send", json={
         "from": "you@example.com",
         "to": [to],
         "subject": subject,
@@ -133,7 +193,7 @@ def send_email(to: str, subject: str, body: str) -> None:
 
 ```javascript
 async function sendEmail(to, subject, body) {
-    const res = await fetch("http://localhost:8000/v1/send", {
+    const res = await fetch("http://localhost:8000/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ from: "you@example.com", to: [to], subject, body_text: body }),
@@ -148,7 +208,7 @@ async function sendEmail(to, subject, body) {
 const axios = require("axios");
 
 const sendEmail = (to, subject, body) =>
-    axios.post("http://localhost:8000/v1/send", {
+    axios.post("http://localhost:8000/api/send", {
         from: "you@example.com",
         to: [to],
         subject,
@@ -182,7 +242,7 @@ Run through this before you present:
 - [ ] Test email sent via the **Test Send** tab and received in your inbox
 - [ ] Outbox tab shows `success` status (not `sandbox`)
 - [ ] Server is running (`uvicorn` command active in terminal)
-- [ ] Your app's email calls point to `http://localhost:8000/v1/send`
+- [ ] Your app's email calls point to `http://localhost:8000/api/send`
 - [ ] You know how to check the Outbox tab if something fails during the demo
 
 ---
@@ -198,3 +258,7 @@ Run through this before you present:
 - [docs/SANDBOX.md](SANDBOX.md) — Everything about Sandbox Mode
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — If something isn't working
 - [docs/API.md](API.md) — All endpoints and integration examples
+- [docs/DOCKER.md](DOCKER.md) — Run with Docker (no Python install needed)
+- [docs/HOSTING.md](HOSTING.md) — All cloud hosting options compared
+- [docs/RENDER.md](RENDER.md) — Deploy to Render (persistent cloud)
+- [docs/RAILWAY.md](RAILWAY.md) — Deploy to Railway (persistent cloud)

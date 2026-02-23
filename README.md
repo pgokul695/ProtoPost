@@ -47,6 +47,9 @@ ProtoPost solves both. Run one server locally, point your app at it, and you get
 
 ## Quick Start
 
+> **Prefer Docker?** Skip the Python setup entirely — see [docs/DOCKER.md](docs/DOCKER.md).  
+> **Need a shared team URL?** Deploy to Render or Railway — see [docs/HOSTING.md](docs/HOSTING.md).
+
 ### Requirements
 
 - Python 3.11 or higher ([download](https://python.org/downloads))
@@ -102,7 +105,7 @@ That's it. The dashboard opens in your browser. No config file to edit first.
 
 ## How to send an email
 
-Point your app at `POST http://localhost:8000/v1/send`:
+Point your app at `POST http://localhost:8000/api/send`:
 
 ```json
 {
@@ -123,7 +126,7 @@ That's the only integration step. Your app never needs to know which provider is
 ```
 Your App Code
      │
-     │  POST /v1/send  (JSON payload)
+     │  POST /api/send  (JSON payload)
      ▼
 ┌─────────────────────────────┐
 │    ProtoPost Server         │  ← runs at localhost:8000
@@ -162,6 +165,10 @@ The server reads `config.json` on every request. Change a provider in the dashbo
 | [docs/API.md](docs/API.md) | Full REST API reference with code examples |
 | [docs/SANDBOX.md](docs/SANDBOX.md) | Sandbox mode — what it does and when to use it |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Exact fixes for the most common errors |
+| [docs/DOCKER.md](docs/DOCKER.md) | Run with Docker — one command, no Python install needed |
+| [docs/HOSTING.md](docs/HOSTING.md) | All cloud hosting options compared (Render, Railway, Fly.io, VPS, and more) |
+| [docs/RENDER.md](docs/RENDER.md) | Step-by-step guide: deploy to Render with persistent storage |
+| [docs/RAILWAY.md](docs/RAILWAY.md) | Step-by-step guide: deploy to Railway with persistent storage |
 
 ---
 
@@ -183,6 +190,15 @@ protopost/
 ├── emails.db                # SQLite database (auto-created)
 └── requirements.txt         # Python dependencies
 ```
+
+---
+
+## Creators
+
+| Name | Role | Website | Email |
+|---|---|---|---|
+| Gokul P | Developer | [gokulp.in](https://gokulp.in) | [me@gokulp.in](mailto:me@gokulp.in) |
+| Devika P Sajith | QA | [devikapsajith.netlify.app](https://devikapsajith.netlify.app/) | [devikasajith710@gmail.com](mailto:devikasajith710@gmail.com) |
 
 ---
 

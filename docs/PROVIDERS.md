@@ -1,4 +1,4 @@
-<!-- Last updated: when this project was generated -->
+<!-- Last updated: February 2026 -->
 
 [← Back to README](../README.md)
 
@@ -248,7 +248,7 @@ Open the ProtoPost dashboard → **Providers** tab → **Add Provider**.
 After adding a provider, run this from your terminal:
 
 ```bash
-curl -X POST http://localhost:8000/v1/send \
+curl -X POST http://localhost:8000/api/send \
   -H "Content-Type: application/json" \
   -d '{
     "from": "you@example.com",
@@ -280,7 +280,7 @@ If you get an error, check the `detail` field in the response body. The full err
 3. Disable your current provider (toggle the switch)
 4. Enable your new provider
 
-Your app keeps calling `POST /v1/send` at the same URL. Nothing else changes.
+Your app keeps calling `POST /api/send` at the same URL. Nothing else changes.
 
 ---
 

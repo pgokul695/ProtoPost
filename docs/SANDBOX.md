@@ -1,4 +1,4 @@
-<!-- Last updated: when this project was generated -->
+<!-- Last updated: February 2026 -->
 
 [← Back to README](../README.md)
 
@@ -12,7 +12,7 @@ Sandbox Mode is the single most important feature to understand before you start
 
 When Sandbox Mode is on:
 
-1. Your app calls `POST /v1/send` as normal
+1. Your app calls `POST /api/send` as normal
 2. ProtoPost receives the request and validates it
 3. The email is saved to the local database
 4. ProtoPost returns a `200 OK` response immediately
@@ -58,7 +58,7 @@ Click the **Sandbox Mode** toggle in the ProtoPost header. It saves immediately.
 **Option 2 — API:**
 
 ```bash
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "smart", "sandbox": true}'
 ```
@@ -144,7 +144,7 @@ Click the **Sandbox Mode** toggle in the dashboard header. It turns grey/off.
 Or via API:
 
 ```bash
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "smart", "sandbox": false}'
 ```

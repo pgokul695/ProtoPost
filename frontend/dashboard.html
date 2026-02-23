@@ -154,7 +154,15 @@
             </div>
             
             <!-- Connection Status -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-4">
+                <!-- Auth Token Indicator -->
+                <div class="flex items-center gap-2">
+                    <button id="authBtn" onclick="AuthToken.prompt()" title="Set auth token"
+                        class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-all cursor-pointer">
+                        <span id="authIcon">🔓</span>
+                        <span id="authLabel" class="text-slate-400">No auth</span>
+                    </button>
+                </div>
                 <div id="connectionDot" class="w-3 h-3 rounded-full bg-gray-500"></div>
                 <span class="text-sm text-slate-400">Server: <span id="serverStatus">checking...</span></span>
             </div>
@@ -238,6 +246,12 @@
                             'Content-Type': 'application/json'
                         }
                     };
+
+                    // Attach bearer token if one is stored
+                    const token = AuthToken.get();
+                    if (token) {
+                        options.headers['Authorization'] = `Bearer ${token}`;
+                    }
                     
                     if (body) {
                         options.body = JSON.stringify(body);
@@ -245,6 +259,11 @@
                     
                     const response = await fetch(`${this.base}${path}`, options);
                     
+                    if (response.status === 401) {
+                        AuthToken.prompt('Server requires an auth token. Enter it below:');
+                        throw new Error('Unauthorized — enter your AUTH_TOKEN in the lock button.');
+                    }
+
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
                         throw new Error(JSON.stringify(errorData.detail || errorData));
@@ -263,6 +282,60 @@
             async post(path, body) { return this.request('POST', path, body); },
             async put(path, body) { return this.request('PUT', path, body); },
             async delete(path) { return this.request('DELETE', path); }
+        };
+
+        // ============================================
+        // AUTH TOKEN MANAGER
+        // ============================================
+
+        const AuthToken = {
+            _key: 'protopost_auth_token',
+
+            get() {
+                return localStorage.getItem(this._key) || '';
+            },
+
+            set(token) {
+                if (token) {
+                    localStorage.setItem(this._key, token);
+                } else {
+                    localStorage.removeItem(this._key);
+                }
+                this.updateUI();
+            },
+
+            updateUI() {
+                const token = this.get();
+                const btn = document.getElementById('authBtn');
+                const icon = document.getElementById('authIcon');
+                const label = document.getElementById('authLabel');
+                if (!btn) return;
+                if (token) {
+                    icon.textContent = '🔒';
+                    label.textContent = 'Token set';
+                    label.className = 'text-green-400';
+                    btn.className = btn.className.replace('border-slate-600', 'border-green-600');
+                    btn.classList.add('border-green-600');
+                    btn.classList.remove('border-slate-600');
+                } else {
+                    icon.textContent = '🔓';
+                    label.textContent = 'No auth';
+                    label.className = 'text-slate-400';
+                    btn.classList.add('border-slate-600');
+                    btn.classList.remove('border-green-600');
+                }
+            },
+
+            prompt(message = 'Enter your AUTH_TOKEN (leave blank to clear):') {
+                const current = this.get();
+                const token = window.prompt(message, current);
+                if (token === null) return; // cancelled
+                this.set(token.trim());
+            },
+
+            init() {
+                this.updateUI();
+            }
         };
         
         // ============================================
@@ -327,6 +400,7 @@
         
         async function init() {
             Toast.init();
+            AuthToken.init();
             
             // Check server connectivity
             await checkServerHealth();
@@ -345,7 +419,7 @@
         
         async function checkServerHealth() {
             try {
-                const health = await GatewayAPI.get('/v1/health');
+                const health = await GatewayAPI.get('/api/health');
                 document.getElementById('connectionDot').className = 'w-3 h-3 rounded-full bg-green-500';
                 document.getElementById('serverStatus').textContent = window.location.host;
             } catch (error) {
@@ -357,7 +431,7 @@
         
         async function loadConfig() {
             try {
-                state.config = await GatewayAPI.get('/v1/config');
+                state.config = await GatewayAPI.get('/api/config');
                 
                 // Update sandbox toggle
                 document.getElementById('sandboxToggle').checked = state.config.routing.sandbox;
@@ -368,7 +442,7 @@
         
         async function loadLogs() {
             try {
-                const response = await GatewayAPI.get('/v1/logs?limit=100');
+                const response = await GatewayAPI.get('/api/logs?limit=100');
                 state.logs = response.logs;
             } catch (error) {
                 console.error('Failed to load logs:', error);
@@ -377,7 +451,7 @@
         
         async function loadStats() {
             try {
-                state.stats = await GatewayAPI.get('/v1/stats');
+                state.stats = await GatewayAPI.get('/api/stats');
             } catch (error) {
                 console.error('Failed to load stats:', error);
             }
@@ -388,7 +462,7 @@
                 const enabled = e.target.checked;
                 
                 try {
-                    await GatewayAPI.post('/v1/config/routing', {
+                    await GatewayAPI.post('/api/config/routing', {
                         mode: state.config.routing.mode,
                         sandbox: enabled
                     });
@@ -574,7 +648,7 @@
         
         async function viewLogDetail(logId) {
             try {
-                const log = await GatewayAPI.get(`/v1/logs/${logId}`);
+                const log = await GatewayAPI.get(`/api/logs/${logId}`);
                 
                 const toAddresses = JSON.parse(log.to_addresses);
                 const requestPayload = JSON.parse(log.request_payload);
@@ -748,7 +822,7 @@
                 const provider = state.config.providers.find(p => p.id === providerId);
                 provider.enabled = !provider.enabled;
                 
-                await GatewayAPI.put(`/v1/config/providers/${providerId}`, provider);
+                await GatewayAPI.put(`/api/config/providers/${providerId}`, provider);
                 await loadConfig();
                 
                 Toast.success(`Provider ${provider.enabled ? 'enabled' : 'disabled'}`);
@@ -764,7 +838,7 @@
             if (!confirm(`Delete provider "${providerName}"?`)) return;
             
             try {
-                await GatewayAPI.delete(`/v1/config/providers/${providerId}`);
+                await GatewayAPI.delete(`/api/config/providers/${providerId}`);
                 await loadConfig();
                 
                 Toast.warning(`Provider "${providerName}" deleted`);
@@ -1283,7 +1357,7 @@ ${content}</div>
             }
             
             try {
-                await GatewayAPI.post('/v1/config/providers', providerData);
+                await GatewayAPI.post('/api/config/providers', providerData);
                 
                 const successMessages = {
                     gmail: '✓ Gmail provider added successfully',
@@ -1421,11 +1495,11 @@ ${content}</div>
             try {
                 if (state.editingProvider) {
                     // Update existing provider
-                    await GatewayAPI.put(`/v1/config/providers/${state.editingProvider.id}`, providerData);
+                    await GatewayAPI.put(`/api/config/providers/${state.editingProvider.id}`, providerData);
                     Toast.success('Provider updated successfully');
                 } else {
                     // Add new provider
-                    await GatewayAPI.post('/v1/config/providers', providerData);
+                    await GatewayAPI.post('/api/config/providers', providerData);
                     Toast.success('Provider added successfully');
                 }
                 
@@ -1543,7 +1617,7 @@ ${content}</div>
         
         async function setRoutingMode(mode) {
             try {
-                await GatewayAPI.post('/v1/config/routing', {
+                await GatewayAPI.post('/api/config/routing', {
                     mode: mode,
                     sandbox: state.config.routing.sandbox
                 });
@@ -1651,7 +1725,7 @@ ${content}</div>
             `;
             
             try {
-                const result = await GatewayAPI.post('/v1/send', payload);
+                const result = await GatewayAPI.post('/api/send', payload);
                 
                 document.getElementById('testResponse').innerHTML = `
                     <div class="space-y-3">

@@ -1,10 +1,10 @@
-<!-- Last updated: when this project was generated -->
+<!-- Last updated: February 2026 -->
 
 [← Back to README](../README.md)
 
 # API Reference
 
-ProtoPost is a local HTTP server. There's no authentication — it's designed to run on your machine, not exposed to the internet.
+ProtoPost exposes a simple HTTP API. There is no authentication — keep the server URL private or restrict access at the network level if deployed to a public host.
 
 ---
 
@@ -14,7 +14,32 @@ ProtoPost is a local HTTP server. There's no authentication — it's designed to
 http://localhost:8000
 ```
 
-If you started the server on a different port, replace `8000` accordingly.
+Replace `localhost:8000` with your server's address if running on a different port or hosted remotely (e.g. `https://protopost.onrender.com` or `https://protopost-production.up.railway.app`).
+
+---
+
+## Authentication
+
+Auth is **off by default**. No token is needed when running locally.
+
+To protect the API (recommended when hosting on Render, Railway, or any public URL), set the `AUTH_TOKEN` environment variable on the server. Once set, every `/api/*` request must include:
+
+```
+Authorization: Bearer <your-token>
+```
+
+The dashboard automatically stores the token in `localStorage` and sends it with every request. Click the 🔓 lock icon in the top-right of the dashboard header to enter or clear the token.
+
+**401 response when token is wrong or missing:**
+
+```json
+{
+  "detail": "Unauthorized. Provide a valid Bearer token in the Authorization header."
+}
+```
+
+> [!NOTE]
+> `GET /api/health` is always unauthenticated — the dashboard uses it for the connection status dot.
 
 ---
 
@@ -26,7 +51,7 @@ All request bodies are JSON. Always include the `Content-Type: application/json`
 
 ## Endpoints
 
-### POST /v1/send
+### POST /api/send
 
 Send an email through the gateway. This is the only endpoint your app needs to call.
 
@@ -46,7 +71,7 @@ Send an email through the gateway. This is the only endpoint your app needs to c
 **Example Request**
 
 ```bash
-curl -X POST http://localhost:8000/v1/send \
+curl -X POST http://localhost:8000/api/send \
   -H "Content-Type: application/json" \
   -d '{
     "from": "you@example.com",
@@ -119,7 +144,7 @@ curl -X POST http://localhost:8000/v1/send \
 
 ---
 
-### GET /v1/logs
+### GET /api/logs
 
 Get a list of all sent (and sandbox) emails. Sorted by most recent first.
 
@@ -133,7 +158,7 @@ Get a list of all sent (and sandbox) emails. Sorted by most recent first.
 **Example Request**
 
 ```bash
-curl "http://localhost:8000/v1/logs?limit=20&offset=0"
+curl "http://localhost:8000/api/logs?limit=20&offset=0"
 ```
 
 **Success Response (200)**
@@ -161,14 +186,14 @@ curl "http://localhost:8000/v1/logs?limit=20&offset=0"
 
 ---
 
-### GET /v1/logs/{log_id}
+### GET /api/logs/{log_id}
 
 Get full details for a single log entry, including the email body.
 
 **Example Request**
 
 ```bash
-curl "http://localhost:8000/v1/logs/a1b2c3d4-e5f6-..."
+curl "http://localhost:8000/api/logs/a1b2c3d4-e5f6-..."
 ```
 
 **Success Response (200)**
@@ -202,14 +227,14 @@ curl "http://localhost:8000/v1/logs/a1b2c3d4-e5f6-..."
 
 ---
 
-### GET /v1/stats
+### GET /api/stats
 
 Get aggregate statistics for all emails sent.
 
 **Example Request**
 
 ```bash
-curl "http://localhost:8000/v1/stats"
+curl "http://localhost:8000/api/stats"
 ```
 
 **Success Response (200)**
@@ -235,14 +260,14 @@ curl "http://localhost:8000/v1/stats"
 
 ---
 
-### GET /v1/config
+### GET /api/config
 
 Get the current gateway configuration.
 
 **Example Request**
 
 ```bash
-curl "http://localhost:8000/v1/config"
+curl "http://localhost:8000/api/config"
 ```
 
 **Success Response (200)**
@@ -271,14 +296,14 @@ curl "http://localhost:8000/v1/config"
 
 ---
 
-### PUT /v1/config
+### PUT /api/config
 
 Replace the entire configuration. Use this to restore a saved config or reset to defaults.
 
 **Example Request**
 
 ```bash
-curl -X PUT http://localhost:8000/v1/config \
+curl -X PUT http://localhost:8000/api/config \
   -H "Content-Type: application/json" \
   -d '{
     "providers": [],
@@ -289,11 +314,11 @@ curl -X PUT http://localhost:8000/v1/config \
   }'
 ```
 
-**Success Response (200)** — Returns the updated config (same format as GET /v1/config).
+**Success Response (200)** — Returns the updated config (same format as GET /api/config).
 
 ---
 
-### POST /v1/config/providers
+### POST /api/config/providers
 
 Add a new provider.
 
@@ -343,14 +368,14 @@ Add a new provider.
 
 ---
 
-### PUT /v1/config/providers/{provider_id}
+### PUT /api/config/providers/{provider_id}
 
-Update an existing provider. The request body is the same format as POST /v1/config/providers.
+Update an existing provider. The request body is the same format as POST /api/config/providers.
 
 **Example Request**
 
 ```bash
-curl -X PUT "http://localhost:8000/v1/config/providers/a1b2c3d4-..." \
+curl -X PUT "http://localhost:8000/api/config/providers/a1b2c3d4-..." \
   -H "Content-Type: application/json" \
   -d '{
     "name": "My Resend Provider",
@@ -373,14 +398,14 @@ curl -X PUT "http://localhost:8000/v1/config/providers/a1b2c3d4-..." \
 
 ---
 
-### DELETE /v1/config/providers/{provider_id}
+### DELETE /api/config/providers/{provider_id}
 
 Delete a provider permanently.
 
 **Example Request**
 
 ```bash
-curl -X DELETE "http://localhost:8000/v1/config/providers/a1b2c3d4-..."
+curl -X DELETE "http://localhost:8000/api/config/providers/a1b2c3d4-..."
 ```
 
 **Success Response (200)**
@@ -393,7 +418,7 @@ curl -X DELETE "http://localhost:8000/v1/config/providers/a1b2c3d4-..."
 
 ---
 
-### POST /v1/config/routing
+### POST /api/config/routing
 
 Update routing mode and sandbox status.
 
@@ -407,7 +432,7 @@ Update routing mode and sandbox status.
 **Example Request**
 
 ```bash
-curl -X POST http://localhost:8000/v1/config/routing \
+curl -X POST http://localhost:8000/api/config/routing \
   -H "Content-Type: application/json" \
   -d '{"mode": "smart", "sandbox": false}'
 ```
@@ -423,14 +448,14 @@ curl -X POST http://localhost:8000/v1/config/routing \
 
 ---
 
-### GET /v1/health
+### GET /api/health
 
 Health check. Use this to verify the server is running.
 
 **Example Request**
 
 ```bash
-curl "http://localhost:8000/v1/health"
+curl "http://localhost:8000/api/health"
 ```
 
 **Success Response (200)**
@@ -456,7 +481,7 @@ import httpx
 async def send_email(to: str, subject: str, html: str):
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://localhost:8000/v1/send",
+            "http://localhost:8000/api/send",
             json={
                 "from": "you@example.com",
                 "to": [to],
@@ -475,7 +500,7 @@ import requests
 
 def send_email(to: str, subject: str, html: str) -> dict:
     response = requests.post(
-        "http://localhost:8000/v1/send",
+        "http://localhost:8000/api/send",
         json={
             "from": "you@example.com",
             "to": [to],
@@ -491,7 +516,7 @@ def send_email(to: str, subject: str, html: str) -> dict:
 
 ```javascript
 async function sendEmail(to, subject, html) {
-    const response = await fetch('http://localhost:8000/v1/send', {
+    const response = await fetch('http://localhost:8000/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -514,7 +539,7 @@ async function sendEmail(to, subject, html) {
 const axios = require('axios');
 
 const sendEmail = async (to, subject, html) => {
-    const { data } = await axios.post('http://localhost:8000/v1/send', {
+    const { data } = await axios.post('http://localhost:8000/api/send', {
         from: 'you@example.com',
         to: [to],
         subject,
@@ -527,7 +552,7 @@ const sendEmail = async (to, subject, html) => {
 ### curl
 
 ```bash
-curl -X POST http://localhost:8000/v1/send \
+curl -X POST http://localhost:8000/api/send \
   -H "Content-Type: application/json" \
   -d '{
     "from": "you@example.com",
@@ -542,6 +567,7 @@ curl -X POST http://localhost:8000/v1/send \
 
 ## See Also
 
-- [docs/PROVIDERS.md](PROVIDERS.md) — Provider-specific fields for POST /v1/config/providers
+- [docs/PROVIDERS.md](PROVIDERS.md) — Provider-specific fields for POST /api/config/providers
 - [docs/SANDBOX.md](SANDBOX.md) — What the sandbox response means
 - [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) — Fixing common 502 / 422 errors
+- [docs/HOSTING.md](HOSTING.md) — Hosting options and where to set AUTH_TOKEN

@@ -1,4 +1,4 @@
-<!-- Last updated: when this project was generated -->
+<!-- Last updated: February 2026 -->
 
 [← Back to README](../README.md)
 
@@ -84,7 +84,7 @@ The server isn't running, or it's running on a different port than the one you'r
 3. Make sure the URL in your browser matches the port you started the server on
 
 **If that didn't work:**
-Try accessing `http://localhost:8000/v1/health` directly. If you see `{"status": "healthy"}`, the server is running fine and the issue is a browser cache or CORS problem — try a hard refresh (Ctrl+Shift+R).
+Try accessing `http://localhost:8000/api/health` directly. If you see `{"status": "healthy"}`, the server is running fine and the issue is a browser cache or CORS problem — try a hard refresh (Ctrl+Shift+R).
 
 ---
 
@@ -416,6 +416,112 @@ Then retry the standard start command.
 
 ---
 
+### ❌ `401 Unauthorized` on every API call
+
+**What's happening:**
+Every request to `/api/*` returns a 401 response.
+
+**Most likely cause:**
+The server has `AUTH_TOKEN` set as an environment variable, but your app (or the dashboard) isn't sending the `Authorization: Bearer <token>` header.
+
+**Fix for the dashboard:**
+
+1. Open the ProtoPost dashboard
+2. Click the 🔓 lock icon in the top-right of the header
+3. Enter your `AUTH_TOKEN` value in the prompt
+4. Click OK — the icon turns 🔒 green
+5. Refresh the page
+
+The token is saved in `localStorage` and sent automatically on every request after that.
+
+**Fix for your app code:**
+
+Add the `Authorization` header to every request:
+
+```python
+# Python
+requests.post("http://your-host/api/send",
+    headers={"Authorization": "Bearer your-secret-token"},
+    json={...}
+)
+```
+
+```javascript
+// JavaScript
+fetch("/api/send", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer your-secret-token"
+    },
+    body: JSON.stringify({...})
+})
+```
+
+---
+
+### ❌ Dashboard lock icon is green but API calls still return 401
+
+**What's happening:**
+The dashboard shows the token is set (🔒 green), but requests still fail with 401.
+
+**Most likely cause:**
+The token stored in `localStorage` doesn't match the `AUTH_TOKEN` on the server — either it was changed on the server or entered incorrectly.
+
+**Fix:**
+
+1. Click the 🔒 lock icon in the dashboard header
+2. Clear the field and click OK to remove the old token
+3. Click the icon again and enter the correct token
+4. Verify the value matches `AUTH_TOKEN` on your server exactly (case-sensitive, no trailing spaces)
+
+To check the current token on Render or Railway, go to the service's **Environment** / **Variables** tab.
+
+---
+
+### ❌ Forgot the AUTH_TOKEN — locked out of the dashboard
+
+**What's happening:**
+You set `AUTH_TOKEN` but can't remember what it was, and the dashboard won't load data.
+
+**Fix:**
+
+On Render:
+1. Go to your service → **Environment**
+2. Find `AUTH_TOKEN` — the value is visible there
+3. Copy it and enter it in the dashboard lock icon prompt
+
+On Railway:
+1. Go to your service → **Variables**
+2. Find `AUTH_TOKEN` and copy the value
+
+If you want to reset it: update `AUTH_TOKEN` to a new value in the environment settings and redeploy. Then enter the new token in the dashboard.
+
+---
+
+### ❌ `AUTH_TOKEN` is set but the API still works without a token
+
+**What's happening:**
+You set `AUTH_TOKEN` in a `.env` file, but requests without an `Authorization` header still succeed.
+
+**Most likely cause:**
+ProtoPost doesn't automatically load `.env` files — the variable must be passed to the process directly.
+
+**Fix:**
+
+```bash
+# Pass it inline
+AUTH_TOKEN=your-secret-token uvicorn backend.main:app --port 8000
+
+# Or export it first
+export AUTH_TOKEN=your-secret-token
+uvicorn backend.main:app --port 8000
+```
+
+For Docker, use the `-e` flag or the `environment:` block in `docker-compose.yml` — not a `.env` file inside the container unless you've configured Docker to load it.
+
+---
+
 ## Quick reference table
 
 | Symptom | Almost Always Because | Quick Fix |
@@ -429,6 +535,9 @@ Then retry the standard start command.
 | 502 all providers failed | Providers disabled | Enable at least one in the Providers tab |
 | SMTP connection refused | Port 587 blocked by VM/ISP | Try port 2525 |
 | SSL wrong version | Both TLS and SSL enabled | Enable only one (TLS for 587, SSL for 465) |
+| 401 on all API calls | AUTH_TOKEN set but header missing | Enter token in dashboard 🔓 lock icon |
+| 401 despite token set in dashboard | Token doesn't match server's AUTH_TOKEN | Re-enter token via lock icon |
+| AUTH_TOKEN ignored | `.env` file not loaded by process | Export env var or use `-e` flag |
 
 ---
 
@@ -437,3 +546,4 @@ Then retry the standard start command.
 - [docs/PROVIDERS.md](PROVIDERS.md) — Provider-specific setup steps
 - [docs/SANDBOX.md](SANDBOX.md) — Sandbox Mode reference
 - [docs/API.md](API.md) — Full error response formats
+- [docs/API.md](API.md#authentication) — Auth token setup and header format
