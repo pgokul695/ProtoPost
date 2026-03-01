@@ -22,6 +22,11 @@ import webbrowser
 
 import uvicorn
 
+# When running as a PyInstaller bundle, _MEIPASS holds all bundled files.
+# We must add it to sys.path so `import backend` resolves correctly.
+if getattr(sys, "_MEIPASS", None):
+    sys.path.insert(0, sys._MEIPASS)
+
 
 # ---------------------------------------------------------------------------
 # Path helpers
@@ -180,6 +185,6 @@ threading.Timer(1.5, lambda: webbrowser.open(f"http://localhost:{port}")).start(
 # Import app AFTER env vars are set so backend initialises with correct values
 # ---------------------------------------------------------------------------
 
-from backend.main import app  # noqa: E402
+from backend.main import app as _app  # noqa: E402
 
-uvicorn.run(app, host=host, port=port, reload=False)
+uvicorn.run(_app, host=host, port=port, reload=False)
