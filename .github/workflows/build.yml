@@ -40,6 +40,23 @@ jobs:
           pyinstaller --onefile
           --name ProtoPost
           --add-data "frontend${{ matrix.sep }}frontend"
+          --add-data "backend${{ matrix.sep }}backend"
+          --hidden-import=backend.main
+          --hidden-import=backend.router
+          --hidden-import=backend.config_manager
+          --hidden-import=backend.database
+          --hidden-import=backend.providers
+          --hidden-import=backend.models
+          --hidden-import=uvicorn.logging
+          --hidden-import=uvicorn.loops
+          --hidden-import=uvicorn.loops.auto
+          --hidden-import=uvicorn.protocols
+          --hidden-import=uvicorn.protocols.http
+          --hidden-import=uvicorn.protocols.http.auto
+          --hidden-import=uvicorn.protocols.websockets
+          --hidden-import=uvicorn.protocols.websockets.auto
+          --hidden-import=uvicorn.lifespan
+          --hidden-import=uvicorn.lifespan.on
           run.py
 
       - name: Rename binary (Windows)

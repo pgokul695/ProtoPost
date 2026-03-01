@@ -177,6 +177,9 @@ threading.Timer(1.5, lambda: webbrowser.open(f"http://localhost:{port}")).start(
 
 # ---------------------------------------------------------------------------
 # Start server
+# Import app AFTER env vars are set so backend initialises with correct values
 # ---------------------------------------------------------------------------
 
-uvicorn.run("backend.main:app", host=host, port=port, reload=False)
+from backend.main import app  # noqa: E402
+
+uvicorn.run(app, host=host, port=port, reload=False)
