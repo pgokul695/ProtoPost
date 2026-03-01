@@ -8,6 +8,20 @@ ProtoPost uses **optional bearer-token authentication**. It is off by default so
 
 ---
 
+## Setting your auth token
+
+**If you're using the executable:**
+The first-run wizard asks for your auth token. Paste it in when prompted.
+To change it later, delete `init_config.json` next to the executable and relaunch.
+
+**If you're using a .env file (Docker / cloud / advanced):**
+```
+AUTH_TOKEN=your-secret-token-here
+```
+The wizard is skipped automatically when a .env file is present.
+
+---
+
 ## How it works
 
 | State | `AUTH_TOKEN` env var | Behaviour |

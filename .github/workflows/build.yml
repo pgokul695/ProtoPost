@@ -1,0 +1,56 @@
+name: Build Binaries
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            asset_name: ProtoPost-windows.exe
+            sep: ";"
+          - os: macos-latest
+            asset_name: ProtoPost-macos
+            sep: ":"
+          - os: ubuntu-latest
+            asset_name: ProtoPost-linux
+            sep: ":"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build with PyInstaller
+        run: >
+          pyinstaller --onefile
+          --name ProtoPost
+          --add-data "frontend${{ matrix.sep }}frontend"
+          run.py
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        run: move dist\ProtoPost.exe dist\ProtoPost-windows.exe
+
+      - name: Rename binary (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: mv dist/ProtoPost dist/${{ matrix.asset_name }}
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.asset_name }}

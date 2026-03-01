@@ -7,27 +7,35 @@ No backstory. No theory. Pick your path and follow the steps.
 
 ---
 
-## Pick your path
+## Step 1 — Get ProtoPost running (2 minutes)
 
-```
-Not sure which to pick? Use this:
+**The fast way — no Python needed:**
 
-Just testing / don't want to spam anyone  →  Path A (Sandbox)    ← 2 min
-Need real email delivery (and have a domain), have 5 min      →  Path B (Resend)     ← recommended for people with a domain
-Already have a Gmail account              →  Path C (Gmail) ← recommended for people not having domain
-Don't want to install Python              →  Path D (Docker)     ← 1 min
-Need a shared URL for the whole team      →  Path E (Render / Railway)  ← 5 min
-```
+1. Download the binary for your OS from the
+   [Releases page](https://github.com/pgokul695/ProtoPost/releases):
+     - Windows → `ProtoPost-windows.exe`
+     - macOS → `ProtoPost-macos`
+     - Linux → `ProtoPost-linux`
+
+2. Double-click it.
+
+3. A short setup wizard appears — press Enter twice to accept all defaults
+   (port 8000, no auth token).
+
+4. The dashboard opens in your browser. Done.
+
+> **macOS only:** If you see a security warning, right-click the file → Open → Open.
 
 ---
 
-## Path A — Testing without real sends (2 minutes)
+**Already have Python? Run from source instead:**
 
-### Step 1 — Start the server
-
-```bash
+```
+pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
+
+Open http://localhost:8000.
 
 ### Step 2 — Open the dashboard
 
@@ -77,7 +85,7 @@ Copy the key — it starts with `re_` and is only shown once.
 
 The email should arrive within 10–30 seconds.
 
-> [!NOTE]
+ 
 > If you don't have a custom domain, use `onboarding@resend.dev` as the **From** address in your app. You can only send to email addresses you've verified in your Resend account with this address, but it works immediately without DNS setup.
 
 ---

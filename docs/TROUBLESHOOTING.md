@@ -8,6 +8,37 @@ Every error listed here includes the exact symptom, the most likely cause, and s
 
 ---
 
+## Executable issues
+
+**macOS: “ProtoPost-macos cannot be opened because it is from an unidentified developer”**
+Right-click the file → Open → click Open in the dialog.
+You only need to do this once. After that it launches normally.
+
+**Windows: SmartScreen warning (“Windows protected your PC”)**
+Click “More info” → “Run anyway”. This appears because the binary is not
+code-signed. It is safe to proceed.
+
+**The wizard appeared but I want to change my port or auth token**
+Delete `init_config.json` from the same folder as the executable and relaunch.
+The wizard will run again.
+
+**The browser didn’t open automatically**
+The server is still running. Manually open http://localhost:8000 (or whatever
+port you chose during setup). The auto-open uses a 1.5s delay and may miss on
+very slow machines.
+
+**The executable crashes immediately with no error**
+Launch from a terminal instead of double-clicking so you can see the error output:
+- Windows → open PowerShell, drag the .exe into it, press Enter
+- macOS → open Terminal, drag the binary into it, press Enter
+- Linux → `chmod +x ProtoPost-linux && ./ProtoPost-linux`
+
+**Port already in use**
+Delete `init_config.json` and relaunch. Pick a different port in the wizard,
+such as 8001 or 9000.
+
+---
+
 ### ❌ `uvicorn: command not found`
 
 **What's happening:**

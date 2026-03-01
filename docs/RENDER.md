@@ -9,6 +9,11 @@ Render runs ProtoPost as a real Docker container — not a serverless function. 
 > [!NOTE]
 > **The free tier works fine.** Cold starts (after 15 min of inactivity) do not lose any data — the container just needs a moment to wake up. Data is only lost on a **redeploy** if you skip the persistent disk setup in Step 4. With the disk in place, nothing is ever lost.
 
+> **Using the executable?** The executable is for local desktop use.
+> For Render hosting, use the Python source path below.
+> Set `PORT` and `AUTH_TOKEN` in Render’s environment variable settings —
+> the setup wizard is automatically skipped when these are present.
+
 ---
 
 ## Prerequisites

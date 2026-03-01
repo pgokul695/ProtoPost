@@ -50,40 +50,41 @@ ProtoPost solves both. Run one server locally, point your app at it, and you get
 
 ### Requirements
 
-- Python 3.11 or higher ([download](https://python.org/downloads))
-- pip (comes with Python)
-- A terminal (Terminal on Mac, PowerShell or CMD on Windows)
+- Nothing. Just a working computer.
+- (For the developer path: Python 3.11+)
 
-### 1. Clone or download this project
+## Option A — Download & Run (Recommended, no Python needed)
 
-```bash
-git clone https://github.com/yourname/protopost.git
-cd protopost
+1. Go to the [Releases page](https://github.com/pgokul695/ProtoPost/releases) and
+   download the binary for your OS:
+     - Windows → `ProtoPost-windows.exe`
+     - macOS → `ProtoPost-macos`
+     - Linux → `ProtoPost-linux`
+
+2. Double-click it (or run it from your terminal).
+
+3. First launch only: a short wizard asks for your port (default: 8000) and an
+   optional auth token. Press Enter twice to accept all defaults.
+
+4. Your browser opens to the dashboard automatically.
+
+That's it. No Python, no pip, no config files.
+
+> **macOS users:** If macOS blocks the file, right-click → Open → Open.
+> This is a one-time Gatekeeper prompt for unsigned binaries.
+
+## Option B — Run from Source (Developers)
+
+Requires Python 3.11+.
+
 ```
-
-### 2. Install dependencies
-
-```bash
+git clone https://github.com/pgokul695/ProtoPost.git
+cd ProtoPost
 pip install -r requirements.txt
-```
-
-### 3. Start the server
-
-```bash
 uvicorn backend.main:app --reload --port 8000
 ```
 
-> [!NOTE]
-> **Windows users:** If `uvicorn` isn't found, run:
-> ```bash
-> python -m uvicorn backend.main:app --reload --port 8000
-> ```
-
-### 4. Open the dashboard
-
-Visit: **http://localhost:8000**
-
-That's it. The dashboard opens in your browser. No config file to edit first.
+Then open http://localhost:8000.
 
 ---
 
@@ -157,6 +158,7 @@ The server reads `config.json` on every request. Change a provider in the dashbo
 
 | Doc | What's in it |
 |---|---|
+| [Releases page](https://github.com/pgokul695/ProtoPost/releases) | Download the executable for your OS — start here |
 | [docs/HACKATHON_QUICKSTART.md](docs/HACKATHON_QUICKSTART.md) | Get email working in 5 minutes — start here if you're in a hurry |
 | [docs/PROVIDERS.md](docs/PROVIDERS.md) | How to set up Resend, Mailtrap, Gmail, and custom SMTP |
 | [docs/ROUTING.md](docs/ROUTING.md) | Load balancing and failover explained |

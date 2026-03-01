@@ -9,6 +9,11 @@ Railway connects to your GitHub repo, detects the `Dockerfile`, and deploys in a
 > [!NOTE]
 > **The free trial works fine.** Railway gives $5 of free credits on signup (no card needed). A continuously-running ProtoPost instance costs roughly $0.50–1/month on the Hobby plan — well within hackathon budget. Cold starts **do not lose data** — the volume is always mounted.
 
+> **Using the executable?** The executable is for local desktop use.
+> For Railway hosting, use the Python source path below.
+> Set `PORT` and `AUTH_TOKEN` in Railway’s environment variable settings —
+> the setup wizard is automatically skipped when these are present.
+
 ---
 
 ## Prerequisites

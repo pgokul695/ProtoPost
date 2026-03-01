@@ -6,6 +6,11 @@
 
 Docker is the fastest way to run ProtoPost on any machine — no Python installation, no dependency conflicts, one command to start.
 
+> **Just want to run ProtoPost locally?** The executable on the
+> [Releases page](https://github.com/pgokul695/ProtoPost/releases) is simpler —
+> double-click, done. Docker is useful if you prefer containers or want to run
+> ProtoPost as a background service.
+
 ---
 
 ## Prerequisites

@@ -17,6 +17,18 @@ from .config_manager import config_manager
 from .database import database_manager
 from .router import routing_engine
 
+import sys as _sys
+import os as _os
+
+
+def _resource_path(rel: str) -> str:
+    """Resolve a bundled read-only asset path (PyInstaller-compatible)."""
+    meipass = getattr(_sys, "_MEIPASS", None)
+    if meipass:
+        return _os.path.join(meipass, rel)
+    root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    return _os.path.join(root, rel)
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -75,8 +87,8 @@ async def startup_event():
 @app.get("/", include_in_schema=False)
 async def serve_dashboard():
     """Serve the dashboard HTML file."""
-    dashboard_path = Path(__file__).parent.parent / "frontend" / "dashboard.html"
-    
+    dashboard_path = Path(_resource_path("frontend/dashboard.html"))
+
     if not dashboard_path.exists():
         return JSONResponse(
             status_code=404,
@@ -92,7 +104,7 @@ async def serve_dashboard():
 # Serve favicon
 @app.get("/favicon.jpg", include_in_schema=False)
 async def serve_favicon():
-    favicon_path = Path(__file__).parent.parent / "frontend" / "favicon.jpg"
+    favicon_path = Path(_resource_path("frontend/favicon.jpg"))
     return FileResponse(favicon_path, media_type="image/jpeg")
 
 

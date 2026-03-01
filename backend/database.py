@@ -5,6 +5,7 @@ Uses WAL mode for concurrent read access during high throughput.
 
 import os
 import sqlite3
+import sys
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -210,5 +211,11 @@ class DatabaseManager:
             self._connection = None
 
 
-# Global instance — honours DB_PATH env var for Docker / Render deployments
-database_manager = DatabaseManager(os.getenv("DB_PATH", "./emails.db"))
+# Global instance.
+# Priority: DATABASE_PATH env var (Docker / cloud) → next to the running
+# executable / run.py (dev and PyInstaller desktop builds, persists across launches).
+_db_path = (
+    os.environ.get("DATABASE_PATH")
+    or os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "emails.db")
+)
+database_manager = DatabaseManager(_db_path)

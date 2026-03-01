@@ -8,7 +8,14 @@ ProtoPost needs two things to run in the cloud: a **Python/Docker runtime** and 
 
 This page compares every viable option. The ones with full step-by-step guides are linked.
 
+> **Using the executable?** The executable is for local desktop use.
+> For cloud hosting, use the Python source path below.
+> Set `PORT` and `AUTH_TOKEN` in the platform’s environment variable settings —
+> the setup wizard is automatically skipped when these are present.
+
 ---
+
+All options in the table below are for Python source / Docker deployments. The executable is for local desktop use only.
 
 ## Quick comparison
 
