@@ -8,6 +8,7 @@ import random
 import traceback
 from datetime import datetime
 from fastapi import HTTPException
+from fastapi.concurrency import run_in_threadpool
 from .models import EmailPayload, EmailLog
 from .config_manager import config_manager
 from .database import database_manager
@@ -37,7 +38,7 @@ class RoutingEngine:
         start_time = datetime.now()
         
         # Load fresh config on every request
-        config = config_manager.load()
+        config = await config_manager.load()
         
         # Sandbox mode check - intercept all emails locally
         if config.routing.sandbox:
@@ -57,7 +58,7 @@ class RoutingEngine:
                 error_trace=None
             )
             
-            database_manager.insert_log(log)
+            await run_in_threadpool(database_manager.insert_log, log)
             
             return {
                 "status": "sandbox",
@@ -109,7 +110,7 @@ class RoutingEngine:
                     error_trace=None
                 )
                 
-                database_manager.insert_log(log)
+                await run_in_threadpool(database_manager.insert_log, log)
                 
                 return {
                     "status": "success",
@@ -155,7 +156,7 @@ class RoutingEngine:
             error_trace=errors[-1]["traceback"] if errors else None
         )
         
-        database_manager.insert_log(log)
+        await run_in_threadpool(database_manager.insert_log, log)
         
         # Return detailed error
         raise HTTPException(

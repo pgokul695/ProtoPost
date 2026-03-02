@@ -212,42 +212,15 @@ async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dic
         message["Reply-To"] = payload.reply_to
     
     try:
-        # Determine connection method based on flags
-        use_tls = provider.smtp_use_tls
-        use_ssl = provider.smtp_use_ssl
-        
-        if use_ssl:
-            # Direct SSL/TLS connection (e.g. port 465)
-            smtp_client = aiosmtplib.SMTP(
-                hostname=provider.smtp_host,
-                port=provider.smtp_port,
-                use_tls=True
-            )
-        else:
-            # STARTTLS connection (e.g. port 587) — let aiosmtplib handle it
-            smtp_client = aiosmtplib.SMTP(
-                hostname=provider.smtp_host,
-                port=provider.smtp_port,
-                start_tls=use_tls
-            )
-        
-        await smtp_client.connect()
-        
-        # Authenticate
-        await smtp_client.login(provider.smtp_username, provider.smtp_password)
-        
-        # Send email
-        await smtp_client.send_message(message)
-        
-        await smtp_client.quit()
-        
-        return {
-            "success": True,
-            "provider_id": provider.id,
-            "message_id": message.get("Message-ID", "unknown"),
-            "response": {"status": f"sent via {provider.smtp_host}:{provider.smtp_port}"}
-        }
-    
+        async with aiosmtplib.SMTP(
+            hostname=provider.smtp_host,
+            port=provider.smtp_port,
+            use_tls=provider.smtp_use_ssl,
+            start_tls=provider.smtp_use_tls
+        ) as smtp:
+            await smtp.login(provider.smtp_username, provider.smtp_password)
+            await smtp.send_message(message)
+            return {"success": True, "provider_id": provider.id}
     except Exception as e:
         raise Exception(f"Custom SMTP failed: {str(e)}")
 

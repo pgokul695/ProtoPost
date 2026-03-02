@@ -26,7 +26,7 @@ class ConfigManager:
         self.config_path = Path(config_path or os.getenv("CONFIG_PATH", "./config.json"))
         self._write_lock = asyncio.Lock()
     
-    def load(self) -> AppConfig:
+    async def load(self) -> AppConfig:
         """
         Load configuration from disk.
         Called on every request for live reload.
@@ -35,17 +35,18 @@ class ConfigManager:
         Returns:
             AppConfig: Validated configuration object
         """
-        try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return AppConfig.model_validate(data)
-        except FileNotFoundError:
-            # Create default config if file doesn't exist
-            default_config = self.get_default_config()
-            self.save(default_config)
-            return default_config
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in config file: {e}")
+        async with self._write_lock:
+            try:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return AppConfig.model_validate(data)
+            except FileNotFoundError:
+                # Create default config if file doesn't exist
+                default_config = self.get_default_config()
+                self.save_sync(default_config)
+                return default_config
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in config file: {e}")
     
     async def save(self, config: AppConfig) -> None:
         """

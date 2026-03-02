@@ -204,6 +204,10 @@ class DatabaseManager:
             "avg_processing_time": round(row["avg_processing_time"], 2) if row["avg_processing_time"] else 0
         }
     
+    def get_total_count(self) -> int:
+        with self._get_connection() as conn:
+            return conn.execute("SELECT COUNT(*) FROM email_logs").fetchone()[0]
+
     def close(self) -> None:
         """Close the database connection."""
         if self._connection:

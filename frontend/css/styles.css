@@ -1,0 +1,111 @@
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background-color: #0f172a;
+        }
+        
+        /* Toast animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .toast-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .toast-exit {
+            animation: slideOutRight 0.3s ease-in;
+        }
+        
+        /* Progress bar animation */
+        @keyframes shrink {
+            from {
+                width: 100%;
+            }
+            to {
+                width: 0%;
+            }
+        }
+        
+        .toast-progress {
+            animation: shrink linear;
+        }
+        
+        /* Slide panel animation */
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+        
+        .slide-panel {
+            animation: slideInFromRight 0.3s ease-out;
+        }
+        
+        /* Wizard step transition */
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .wizard-step {
+            animation: fadeSlideUp 0.15s ease-out;
+        }
+        
+        /* Pulse glow for final save button */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+        }
+        
+        .btn-save-final {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        /* Arrow nudge hover effect */
+        .arrow-nudge:hover .arrow-icon {
+            transform: translateX(3px);
+        }
+        
+        .arrow-icon {
+            transition: transform 0.15s ease;
+        }
+        
+        /* Shake animation for validation errors */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+        
+        .shake {
+            animation: shake 0.3s ease;
+        }

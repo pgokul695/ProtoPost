@@ -10,7 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-import traceback
+import logging
+from contextlib import asynccontextmanager
+
+logger = logging.getLogger("protopost")
 
 from .models import EmailPayload, Provider, AppConfig, RoutingConfig
 from .config_manager import config_manager
@@ -30,8 +33,20 @@ def _resource_path(rel: str) -> str:
     return _os.path.join(root, rel)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    database_manager.initialize()
+    try:
+        await config_manager.load()
+    except Exception:
+        config_manager.save_sync(config_manager.get_default_config())
+    yield
+    database_manager.close()
+
+
 # Initialize FastAPI app
 app = FastAPI(
+    lifespan=lifespan,
     title="ProtoPost",
     description="A local proxy server for routing and mocking outbound emails",
     version="1.0.0"
@@ -67,45 +82,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database and config on startup."""
-    # Initialize database schema
-    database_manager.initialize()
-    
-    # Ensure config.json exists
-    try:
-        config_manager.load()
-    except Exception:
-        # Create default config if load fails
-        default_config = config_manager.get_default_config()
-        config_manager.save_sync(default_config)
+# Serve frontend static assets
+app.mount("/static", StaticFiles(directory=_resource_path("frontend")), name="static")
 
 
 # Serve frontend dashboard at root
 @app.get("/", include_in_schema=False)
 async def serve_dashboard():
     """Serve the dashboard HTML file."""
-    dashboard_path = Path(_resource_path("frontend/dashboard.html"))
-
-    if not dashboard_path.exists():
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "Dashboard not found",
-                "message": "frontend/dashboard.html is missing"
-            }
-        )
-    
-    return FileResponse(dashboard_path)
-
-
-# Serve favicon
-@app.get("/favicon.jpg", include_in_schema=False)
-async def serve_favicon():
-    favicon_path = Path(_resource_path("frontend/favicon.jpg"))
-    return FileResponse(favicon_path, media_type="image/jpeg")
+    return FileResponse(_resource_path("frontend/index.html"))
 
 
 # Health check endpoint
@@ -154,14 +139,10 @@ async def send_email(payload: EmailPayload):
     except HTTPException:
         raise
     except Exception as e:
-        # Unexpected error - return detailed info
+        logger.error(f"Routing Error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail={
-                "message": "Internal server error during email routing",
-                "error": str(e),
-                "traceback": traceback.format_exc()
-            }
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -187,7 +168,7 @@ async def get_logs(
             "logs": logs,
             "limit": limit,
             "offset": offset,
-            "count": len(logs)
+            "total": database_manager.get_total_count()
         }
     except Exception as e:
         raise HTTPException(
@@ -256,7 +237,7 @@ async def get_config():
         Complete AppConfig including providers and routing settings
     """
     try:
-        config = config_manager.load()
+        config = await config_manager.load()
         return config.model_dump(mode='json')
     except Exception as e:
         raise HTTPException(
@@ -300,7 +281,7 @@ async def add_provider(provider: Provider):
         Updated configuration
     """
     try:
-        config = config_manager.load()
+        config = await config_manager.load()
         
         # Check for duplicate provider names
         if any(p.name == provider.name for p in config.providers):
@@ -342,7 +323,7 @@ async def update_provider(provider_id: str, updated_provider: Provider):
         Updated configuration
     """
     try:
-        config = config_manager.load()
+        config = await config_manager.load()
         
         # Find provider index
         provider_index = None
@@ -390,7 +371,7 @@ async def delete_provider(provider_id: str):
         Updated configuration
     """
     try:
-        config = config_manager.load()
+        config = await config_manager.load()
         
         # Find and remove provider
         original_count = len(config.providers)
@@ -431,7 +412,7 @@ async def update_routing(routing: RoutingConfig):
         Updated configuration
     """
     try:
-        config = config_manager.load()
+        config = await config_manager.load()
         config.routing = routing
         
         await config_manager.save(config)
