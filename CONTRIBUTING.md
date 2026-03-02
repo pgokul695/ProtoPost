@@ -136,6 +136,45 @@ Create a free account on your provider, send a real email through the gateway, a
 
 ---
 
+## Running the Test Suite Before Contributing
+
+All pull requests must pass the existing test suite without modification.
+Before opening a PR, run:
+
+```bash
+pip install -r requirements-test.txt
+pytest tests/
+```
+
+New provider integrations require corresponding mock tests in
+`tests/test_providers.py`. New API endpoints require tests in `tests/test_api.py`.
+Do not open a PR with failing or skipped tests.
+
+## Code Style Notes
+
+These rules apply to all contributions:
+
+**Backend (Python)**
+- All async functions must be consistently awaited at every call site.
+- Synchronous operations (database writes, file I/O) inside async functions
+  must be offloaded with `run_in_threadpool` or protected with `asyncio.Lock`.
+- All public functions require type hints.
+- Follow PEP 8 formatting.
+
+**Frontend (JavaScript)**
+- Use native ES modules only. No bundler, no build step, no frameworks.
+- Use `escapeHtml()` from `js/utils.js` whenever untrusted data is inserted
+  into the DOM. Direct assignment to `innerHTML` with raw user data is not
+  permitted.
+- Remove all `console.log` statements before opening a PR.
+- Keep import paths relative (e.g. `./api.js`, `./components/toast.js`).
+
+**General**
+- Do not commit `config.json` or `emails.db`. Both are covered by `.gitignore`.
+- Do not add new runtime dependencies without discussion in an issue first.
+
+---
+
 ## Running in dev mode
 
 ```bash
@@ -146,7 +185,7 @@ pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
 
-The server reloads automatically when you change Python files. Changes to `frontend/dashboard.html` take effect on next browser refresh.
+The server reloads automatically when you change Python files. Changes to frontend files under `frontend/` take effect on next browser refresh.
 
 ---
 

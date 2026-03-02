@@ -184,6 +184,11 @@ curl "http://localhost:8000/api/logs?limit=20&offset=0"
 }
 ```
 
+> **Note:** The `total` field reflects the full database count across all pages,
+> not the length of the current page's result set. For example, if there are 200
+> logs and you request `page=1&limit=10`, the response contains 10 logs but
+> `total` is 200.
+
 ---
 
 ### GET /api/logs/{log_id}
@@ -562,6 +567,33 @@ curl -X POST http://localhost:8000/api/send \
     "body_text": "It works!"
   }'
 ```
+
+---
+
+## Error Response Format
+
+All error responses follow this shape:
+
+```json
+{
+  "detail": {
+    "message": "Human-readable error description."
+  }
+}
+```
+
+For 500 errors specifically, the response is always:
+
+```json
+{
+  "detail": {
+    "message": "Internal server error. Check server logs for details."
+  }
+}
+```
+
+Stack traces are never included in HTTP responses. All internal errors are
+logged server-side with full tracebacks for debugging.
 
 ---
 

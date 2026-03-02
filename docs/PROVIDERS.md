@@ -213,6 +213,14 @@ Use this if you already have SMTP credentials for any service — SendGrid, Mail
 | 587 | SMTP + STARTTLS | Modern standard — set `smtp_use_tls: true` |
 | 2525 | SMTP (fallback) | When 587 is blocked, common on cloud VMs |
 
+> **TLS and SSL are mutually exclusive.** Never set both `smtp_use_tls` and
+> `smtp_use_ssl` to `true` at the same time. Use the following guide:
+>
+> | Port | Protocol | Setting |
+> |------|----------|---------|
+> | 587  | STARTTLS | `smtp_use_tls: true`, `smtp_use_ssl: false` |
+> | 465  | Implicit TLS | `smtp_use_ssl: true`, `smtp_use_tls: false` |
+
 ### Common SMTP providers pre-filled
 
 | Provider | Host | Port | Use TLS | Use SSL |
@@ -234,6 +242,16 @@ Open the ProtoPost dashboard → **Providers** tab → **Add Provider**.
 - **Password:** Your SMTP password
 - **Use TLS:** ✓ (for port 587)
 - **Use SSL:** ✗ (unless using port 465)
+
+### Connection Lifecycle
+
+The SMTP connection is managed automatically by the `async with aiosmtplib.SMTP(...)`
+context manager in `providers.py`. The context manager opens the connection on entry
+and closes it cleanly on exit, including on errors.
+
+Do not call `.connect()` or `.quit()` manually in any provider implementation.
+Doing so will cause a double-connect error (`SMTPServerDisconnected` or
+`already connected`).
 
 ### Common mistakes with Custom SMTP
 
@@ -281,6 +299,24 @@ If you get an error, check the `detail` field in the response body. The full err
 4. Enable your new provider
 
 Your app keeps calling `POST /api/send` at the same URL. Nothing else changes.
+
+---
+
+## Adding a New Provider
+
+To integrate a new email provider into ProtoPost:
+
+1. Add a new type value to the `Provider` model in `backend/config_manager.py`.
+2. Create an async function `send_via_yourprovider(payload, provider)` in
+   `backend/providers.py` following the same return shape as existing providers:
+   `{"success": True, "provider_id": provider.id}`.
+3. Add the dispatch case for the new type to `RoutingEngine._dispatch()` in
+   `backend/router.py`.
+4. Add mock tests in `tests/test_providers.py` following the existing patterns.
+   At minimum: a success case, a failure case, and a failover chain test.
+
+The dashboard will automatically display the new provider type once it is
+added to the model.
 
 ---
 

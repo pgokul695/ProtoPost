@@ -22,6 +22,12 @@ Use it whenever you're developing or testing. Switch it off only when you're rea
 > [!WARNING]
 > Sandbox Mode overrides everything — Manual mode, Smart Failover, every provider. Even if all your providers are perfectly configured, emails will not send while Sandbox Mode is on.
 
+In sandbox mode, the routing engine short-circuits before any provider dispatch
+function is called. No network request is made. The engine writes a log entry
+with status `"sandbox"` and returns immediately. This is guaranteed by the
+routing engine's first check — sandbox mode is evaluated before provider
+selection, weight calculation, or any other logic.
+
 **How to enable Sandbox Mode:**
 
 Option 1 — Dashboard: Toggle the **Sandbox Mode** switch in the header bar.
@@ -78,7 +84,17 @@ Mailtrap   [████████░░░░░░░░░░░░░░�
 
 ## Smart Failover Mode
 
-Smart Failover tries providers in order of weight (highest first). If the first provider fails, it moves to the next. If that fails, it tries the next. Only when all providers have failed does the gateway return an error.
+Providers are sorted by weight in descending order. The engine attempts each
+provider in that order, stopping as soon as one succeeds. If a provider raises
+an exception, the engine logs the error, moves to the next provider, and tries
+again.
+
+If all providers fail, the engine returns a structured error response with
+`"status": "failed"` and the last recorded error trace. It does not raise an
+unhandled exception, and it does not return a 500 to the caller unless an
+unexpected internal error occurs outside the dispatch loop.
+
+The classic failover flow:
 
 ```
 Email arrives
@@ -110,6 +126,13 @@ All failed? → Return 502 with error details
 
 > [!NOTE]
 > In Smart Failover mode, the provider with the **highest weight** is tried first. Use weights to set priority — there's no separate "primary/secondary" setting.
+
+### Database Write Offloading
+
+After every provider attempt (success or failure), a log entry is written to
+SQLite. Because SQLite writes are synchronous operations, they are offloaded
+from the async event loop using `run_in_threadpool`. This prevents database
+writes from blocking request handling during periods of concurrent traffic.
 
 ---
 

@@ -33,6 +33,30 @@ The one exception is `GET /api/health`, which is always open (no auth required).
 
 ---
 
+### Disabling Authentication
+
+When `auth_token` is set to an empty string in `config.json`, authentication
+is disabled entirely. All endpoints become publicly accessible without any
+token header. This is the default state on first run.
+
+Only enable authentication when deploying ProtoPost to a shared or
+internet-accessible environment.
+
+### Failed Authentication Response
+
+```
+HTTP 401 Unauthorized
+
+{
+  "detail": "Unauthorized"
+}
+```
+
+This response is returned when the `Authorization` header is missing, empty,
+or does not match the configured token.
+
+---
+
 ## Generating a token
 
 Use `openssl` to generate a cryptographically random token:
@@ -113,9 +137,18 @@ The dashboard automatically handles authentication:
 1. Open the dashboard in your browser.
 2. Click the **🔓 lock icon** in the top-right corner of the header.
 3. Enter the token when prompted and press **Save**.
-4. The icon changes to 🔒 and the token is saved in `localStorage`.
+4. The icon changes to 🔒.
 
-The dashboard sends `Authorization: Bearer <token>` automatically with every API call. If a request returns `401`, the token prompt appears again so you can correct it.
+### Dashboard Token Storage
+
+The ProtoPost dashboard stores the authentication token in memory via the
+`AuthToken` object defined in `js/auth.js`. The token is attached to every
+API request as the `Authorization` header by the `GatewayAPI` fetch wrapper
+in `js/api.js`.
+
+The token is not written to `localStorage` or `sessionStorage`. It is held
+only for the duration of the browser session. Refreshing the page will prompt
+you to re-enter it.
 
 To clear the token (e.g. to switch deployments), click the 🔒 icon and leave the prompt blank, then press **Save**.
 

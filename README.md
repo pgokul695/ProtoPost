@@ -88,6 +88,25 @@ Then open http://localhost:8000.
 
 ---
 
+## Running Tests
+
+Install test dependencies and run the full suite:
+
+```bash
+pip install -r requirements-test.txt
+pytest tests/
+```
+
+Run a specific file or filter by test name:
+
+```bash
+pytest tests/test_routing.py -v
+pytest -k "test_sandbox"
+pytest --tb=short
+```
+
+---
+
 ## What you can do
 
 | Feature | What it means for you |
@@ -140,6 +159,8 @@ Your App Code
 │  │  Sandbox? → Log it  │    │
 │  │  Manual  → Weighted │    │
 │  │  Smart   → Failover │    │
+│  │  run_in_threadpool  │    │
+│  │    → DB write       │    │
 │  └────────┬────────────┘    │
 │           │                 │
 └───────────┼─────────────────┘
@@ -170,6 +191,10 @@ The server reads `config.json` on every request. Change a provider in the dashbo
 | [docs/RENDER.md](docs/RENDER.md) | Step-by-step guide: deploy to Render with persistent storage |
 | [docs/RAILWAY.md](docs/RAILWAY.md) | Step-by-step guide: deploy to Railway with persistent storage |
 | [docs/AUTH.md](docs/AUTH.md) | Authentication — generating tokens, app integration (Python / JS / Node examples) |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, request lifecycle, concurrency model |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Full config.json schema with every field documented |
+| [docs/TESTING.md](docs/TESTING.md) | Test suite guide, mock patterns, and coverage commands |
+| [docs/FRONTEND.md](docs/FRONTEND.md) | Modular JS architecture, XSS protection, file map |
 
 ---
 
@@ -178,18 +203,41 @@ The server reads `config.json` on every request. Change a provider in the dashbo
 ```
 protopost/
 ├── backend/
-│   ├── main.py              # FastAPI app + all endpoints
-│   ├── router.py            # Routing logic + load balancing
-│   ├── config_manager.py    # config.json read/write
-│   ├── database.py          # SQLite operations
-│   ├── providers.py         # Email sending implementations
+│   ├── main.py              # FastAPI app, lifespan startup, API endpoints
+│   ├── router.py            # RoutingEngine (manual, smart, sandbox modes)
+│   ├── config_manager.py    # Async JSON config with asyncio.Lock
+│   ├── database.py          # SQLite + WAL mode, threadpool-safe writes
+│   ├── providers.py         # Resend, SMTP, Mailtrap send functions
 │   └── models.py            # Pydantic schemas
 ├── frontend/
-│   └── dashboard.html       # Complete single-file SPA
-├── docs/                    # This documentation suite
-├── config.json              # Runtime configuration (auto-created)
+│   ├── index.html           # HTML shell (no inline JS or CSS)
+│   ├── css/
+│   │   └── styles.css       # All styles extracted from original monolith
+│   └── js/
+│       ├── main.js          # App entry point, DOMContentLoaded orchestration
+│       ├── api.js           # GatewayAPI fetch wrapper (all HTTP calls)
+│       ├── auth.js          # Token storage and auth modal
+│       ├── state.js         # Shared application state
+│       ├── utils.js         # escapeHtml() and pure helpers
+│       └── components/
+│           ├── toast.js     # Toast notification system
+│           ├── logs.js      # Log table rendering
+│           ├── providers.js # Provider card rendering
+│           ├── routing.js   # Routing rule UI
+│           ├── test-send.js # Test send panel
+│           └── wizard.js    # Gmail setup wizard
+├── tests/
+│   ├── conftest.py          # Shared fixtures (DB, client, auth headers)
+│   ├── test_api.py          # Endpoint tests (auth, validation, pagination)
+│   ├── test_routing.py      # Routing logic (sandbox, weights, failover)
+│   ├── test_providers.py    # Provider mock tests (SMTP, Resend, Mailtrap)
+│   └── test_database.py     # Database persistence (WAL, stats, pagination)
+├── docs/                    # Documentation suite
+├── config.json              # Runtime config (auto-created on first run)
 ├── emails.db                # SQLite database (auto-created)
-└── requirements.txt         # Python dependencies
+├── pytest.ini               # asyncio_mode = auto
+├── requirements.txt
+└── requirements-test.txt
 ```
 
 ---

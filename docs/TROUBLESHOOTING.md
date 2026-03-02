@@ -553,6 +553,67 @@ For Docker, use the `-e` flag or the `environment:` block in `docker-compose.yml
 
 ---
 
+### Logs endpoint returns incorrect `total` count
+
+**Symptom:** The `/api/logs` response shows `total` equal to the page size
+(e.g., `total: 10`) even when more logs exist in the database.
+
+**Cause:** An earlier version of the backend used `count: len(page_results)`
+which returned the current page length instead of the full database count.
+
+**Fix:** This is resolved in the current version. The `total` field now calls
+`database_manager.get_total_count()` which executes `SELECT COUNT(*) FROM email_logs`.
+Ensure you are running the latest backend. Also note the field was renamed from
+`count` to `total` — update any client code that reads this field.
+
+---
+
+### SMTP error: `already connected` or `SMTPServerDisconnected`
+
+**Symptom:** Sending via Gmail or custom SMTP fails with `already connected`
+or `SMTPServerDisconnected` in the error trace.
+
+**Cause:** A manual `.connect()` call is present somewhere in the provider
+implementation alongside the `async with aiosmtplib.SMTP(...)` context manager.
+The context manager opens the connection automatically on entry — calling
+`.connect()` again causes a conflict.
+
+**Fix:** Remove any manual `.connect()`, `.starttls()`, or `.quit()` calls from
+`providers.py`. The `async with` block handles the full connection lifecycle.
+
+---
+
+### Server fails to start: `AttributeError` related to `on_event`
+
+**Symptom:** Running `uvicorn backend.main:app` fails immediately with an
+`AttributeError` mentioning `on_event` or a deprecation-related crash.
+
+**Cause:** An older version of `main.py` used the deprecated
+`@app.on_event("startup")` decorator, which was removed in newer FastAPI
+versions.
+
+**Fix:** The current `main.py` uses the `lifespan` async context manager.
+If you have a locally modified `main.py`, replace the `on_event` handlers
+with the lifespan pattern shown in `docs/ARCHITECTURE.md`.
+
+---
+
+### Server fails to load config: JSON decode error
+
+**Symptom:** The server starts but immediately raises a `JSONDecodeError`
+or similar when loading `config.json`.
+
+**Cause:** A previous write to `config.json` was interrupted, leaving a
+partial or invalid file. Earlier versions wrote directly to the file, which
+could corrupt it on a crash mid-write.
+
+**Fix:** Delete `config.json` from the project root and restart the server.
+It will be recreated automatically with default values. The current version
+writes config atomically (write to a temp file, then rename) so this should
+not recur. After deletion, re-enter your provider credentials via the dashboard.
+
+---
+
 ## Quick reference table
 
 | Symptom | Almost Always Because | Quick Fix |
