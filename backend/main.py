@@ -4,14 +4,15 @@ Main entry point with all API endpoints and frontend serving.
 """
 
 import os
+import sys
 from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 import logging
-from contextlib import asynccontextmanager
 
 logger = logging.getLogger("protopost")
 
@@ -19,18 +20,16 @@ from .models import EmailPayload, Provider, AppConfig, RoutingConfig
 from .config_manager import config_manager
 from .database import database_manager
 from .router import routing_engine
-
-import sys as _sys
-import os as _os
+from . import providers
 
 
 def _resource_path(rel: str) -> str:
     """Resolve a bundled read-only asset path (PyInstaller-compatible)."""
-    meipass = getattr(_sys, "_MEIPASS", None)
+    meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
-        return _os.path.join(meipass, rel)
-    root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-    return _os.path.join(root, rel)
+        return os.path.join(meipass, rel)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(root, rel)
 
 
 @asynccontextmanager
@@ -40,8 +39,9 @@ async def lifespan(app: FastAPI):
         await config_manager.load()
     except Exception:
         config_manager.save_sync(config_manager.get_default_config())
+    providers.init_http_client()
     yield
-    database_manager.close()
+    await providers.close_http_client()
 
 
 # Initialize FastAPI app
@@ -102,7 +102,7 @@ async def health_check():
     """
     try:
         # Test database connectivity
-        database_manager.get_stats()
+        await run_in_threadpool(database_manager.get_stats)
         db_connected = True
     except Exception:
         db_connected = False
@@ -163,17 +163,19 @@ async def get_logs(
         List of log entries ordered by timestamp (newest first)
     """
     try:
-        logs = database_manager.get_logs(limit=limit, offset=offset)
+        logs = await run_in_threadpool(database_manager.get_logs, limit, offset)
+        total = await run_in_threadpool(database_manager.get_total_count)
         return {
             "logs": logs,
             "limit": limit,
             "offset": offset,
-            "total": database_manager.get_total_count()
+            "total": total,
         }
     except Exception as e:
+        logger.error("Failed to retrieve logs: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve logs: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -190,21 +192,22 @@ async def get_log_detail(log_id: str):
         Complete log entry with all fields
     """
     try:
-        log = database_manager.get_log_by_id(log_id)
-        
+        log = await run_in_threadpool(database_manager.get_log_by_id, log_id)
+
         if not log:
             raise HTTPException(
                 status_code=404,
                 detail=f"Log entry not found: {log_id}"
             )
-        
+
         return log
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Failed to retrieve log: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve log: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -218,12 +221,13 @@ async def get_stats():
         Statistics including total sent, failed, sandbox, and average processing time
     """
     try:
-        stats = database_manager.get_stats()
+        stats = await run_in_threadpool(database_manager.get_stats)
         return stats
     except Exception as e:
+        logger.error("Failed to retrieve stats: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve stats: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -240,9 +244,10 @@ async def get_config():
         config = await config_manager.load()
         return config.model_dump(mode='json')
     except Exception as e:
+        logger.error("Failed to load configuration: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to load configuration: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -262,9 +267,10 @@ async def update_config(new_config: AppConfig):
         await config_manager.save(new_config)
         return new_config.model_dump(mode='json')
     except Exception as e:
+        logger.error("Failed to save configuration: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to save configuration: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -301,9 +307,10 @@ async def add_provider(provider: Provider):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Failed to add provider: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to add provider: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -352,9 +359,10 @@ async def update_provider(provider_id: str, updated_provider: Provider):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Failed to update provider: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update provider: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -392,9 +400,10 @@ async def delete_provider(provider_id: str):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Failed to delete provider: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete provider: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )
 
 
@@ -423,7 +432,8 @@ async def update_routing(routing: RoutingConfig):
             "config": config.model_dump(mode='json')
         }
     except Exception as e:
+        logger.error("Failed to update routing configuration: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update routing configuration: {str(e)}"
+            detail={"message": "Internal server error. Check server logs for details."}
         )

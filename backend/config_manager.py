@@ -25,28 +25,28 @@ class ConfigManager:
         """
         self.config_path = Path(config_path or os.getenv("CONFIG_PATH", "./config.json"))
         self._write_lock = asyncio.Lock()
+        self._cache: AppConfig | None = None
     
     async def load(self) -> AppConfig:
         """
-        Load configuration from disk.
-        Called on every request for live reload.
-        Creates default config if file doesn't exist.
-        
+        Return the in-memory cached config, loading from disk only on the
+        first call or after the cache is invalidated by a save.
+
         Returns:
             AppConfig: Validated configuration object
         """
-        async with self._write_lock:
-            try:
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                return AppConfig.model_validate(data)
-            except FileNotFoundError:
-                # Create default config if file doesn't exist
-                default_config = self.get_default_config()
-                self.save_sync(default_config)
-                return default_config
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in config file: {e}")
+        if self._cache is not None:
+            return self._cache
+        # Cache miss — read from disk once
+        try:
+            with open(self.config_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self._cache = AppConfig.model_validate(data)
+        except FileNotFoundError:
+            self._cache = self.get_default_config()
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in config file: {e}")
+        return self._cache
     
     async def save(self, config: AppConfig) -> None:
         """
@@ -73,7 +73,9 @@ class ConfigManager:
             
             # Atomic rename
             os.replace(temp_path, self.config_path)
-    
+            # Update in-memory cache after successful write
+            self._cache = config
+
     def save_sync(self, config: AppConfig) -> None:
         """
         Synchronous version of save for initialization.
@@ -97,7 +99,9 @@ class ConfigManager:
         
         # Atomic rename
         os.replace(temp_path, self.config_path)
-    
+        # Update in-memory cache after successful write
+        self._cache = config
+
     @staticmethod
     def get_default_config() -> AppConfig:
         """

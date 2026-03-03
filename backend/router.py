@@ -4,6 +4,7 @@ Implements sandbox mode, manual load balancing, and smart failover.
 """
 
 import json
+import logging
 import random
 import traceback
 from datetime import datetime
@@ -13,6 +14,8 @@ from .models import EmailPayload, EmailLog
 from .config_manager import config_manager
 from .database import database_manager
 from . import providers
+
+logger = logging.getLogger("protopost")
 
 
 class RoutingEngine:
@@ -76,26 +79,14 @@ class RoutingEngine:
                 detail="No active email providers configured. Please add and enable at least one provider."
             )
         
-        # Select provider based on routing mode
+        # Attempt delivery based on routing mode
         if config.routing.mode == "manual":
-            selected_provider = RoutingEngine._select_manual(active_providers)
-            providers_to_try = [selected_provider] + [p for p in active_providers if p.id != selected_provider.id]
-        else:  # smart mode
-            # Sort by weight descending (highest weight = primary)
-            sorted_providers = sorted(active_providers, key=lambda p: p.weight, reverse=True)
-            providers_to_try = sorted_providers
-        
-        # Attempt delivery with failover
-        errors = []
-        
-        for provider in providers_to_try:
+            # Manual mode: one provider, one attempt — no fallback
+            provider = RoutingEngine._select_manual(active_providers)
             try:
-                # Attempt to send via this provider
                 result = await providers.dispatch(payload, provider)
-                
-                # Success! Log and return
                 processing_time = (datetime.now() - start_time).total_seconds() * 1000
-                
+
                 log = EmailLog(
                     timestamp=datetime.utcnow().isoformat() + "Z",
                     to_addresses=json.dumps(payload.to),
@@ -109,9 +100,8 @@ class RoutingEngine:
                     response_payload=json.dumps(result),
                     error_trace=None
                 )
-                
                 await run_in_threadpool(database_manager.insert_log, log)
-                
+
                 return {
                     "status": "success",
                     "message": f"Email sent successfully via {provider.name}",
@@ -124,50 +114,114 @@ class RoutingEngine:
                     "processing_time_ms": processing_time,
                     "message_id": result.get("message_id")
                 }
-            
+
             except Exception as e:
-                # Provider failed, log error and try next
-                error_info = {
-                    "provider_id": provider.id,
-                    "provider_name": provider.name,
-                    "error": str(e),
-                    "traceback": traceback.format_exc()
+                logger.error(
+                    "Manual mode provider %s failed: %s", provider.id, e, exc_info=True
+                )
+                processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+                log = EmailLog(
+                    timestamp=datetime.utcnow().isoformat() + "Z",
+                    to_addresses=json.dumps(payload.to),
+                    from_address=payload.from_address,
+                    subject=payload.subject,
+                    provider_id=provider.id,
+                    provider_name=provider.name,
+                    status="failed",
+                    processing_time_ms=processing_time,
+                    request_payload=payload.model_dump_json(),
+                    response_payload=json.dumps({"error": str(e)}),
+                    error_trace=traceback.format_exc()
+                )
+                await run_in_threadpool(database_manager.insert_log, log)
+
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "message": f"Provider {provider.id} failed: {str(e)}",
+                        "log_id": log.id,
+                        "processing_time_ms": processing_time,
+                    }
+                )
+
+        else:
+            # Smart mode: sort by weight, attempt in order, stop on first success
+            providers_to_try = sorted(active_providers, key=lambda p: p.weight, reverse=True)
+            errors = []
+
+            for provider in providers_to_try:
+                try:
+                    result = await providers.dispatch(payload, provider)
+
+                    processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+                    log = EmailLog(
+                        timestamp=datetime.utcnow().isoformat() + "Z",
+                        to_addresses=json.dumps(payload.to),
+                        from_address=payload.from_address,
+                        subject=payload.subject,
+                        provider_id=provider.id,
+                        provider_name=provider.name,
+                        status="success",
+                        processing_time_ms=processing_time,
+                        request_payload=payload.model_dump_json(),
+                        response_payload=json.dumps(result),
+                        error_trace=None
+                    )
+                    await run_in_threadpool(database_manager.insert_log, log)
+
+                    return {
+                        "status": "success",
+                        "message": f"Email sent successfully via {provider.name}",
+                        "provider": {
+                            "id": provider.id,
+                            "name": provider.name,
+                            "type": provider.type
+                        },
+                        "log_id": log.id,
+                        "processing_time_ms": processing_time,
+                        "message_id": result.get("message_id")
+                    }
+
+                except Exception as e:
+                    logger.error(
+                        "Smart mode provider %s failed: %s", provider.id, e, exc_info=True
+                    )
+                    errors.append({
+                        "provider_id": provider.id,
+                        "provider_name": provider.name,
+                        "error": str(e),
+                    })
+                    continue
+
+            # All smart-mode providers failed
+            processing_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            log = EmailLog(
+                timestamp=datetime.utcnow().isoformat() + "Z",
+                to_addresses=json.dumps(payload.to),
+                from_address=payload.from_address,
+                subject=payload.subject,
+                provider_id=None,
+                provider_name="All providers failed",
+                status="failed",
+                processing_time_ms=processing_time,
+                request_payload=payload.model_dump_json(),
+                response_payload=json.dumps({"errors": errors}),
+                error_trace=traceback.format_exc()
+            )
+            await run_in_threadpool(database_manager.insert_log, log)
+
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "message": "All email providers failed",
+                    "log_id": log.id,
+                    "processing_time_ms": processing_time,
+                    "errors": errors,
                 }
-                errors.append(error_info)
-                
-                # Continue to next provider
-                continue
-        
-        # All providers failed
-        processing_time = (datetime.now() - start_time).total_seconds() * 1000
-        
-        # Log the final failure
-        log = EmailLog(
-            timestamp=datetime.utcnow().isoformat() + "Z",
-            to_addresses=json.dumps(payload.to),
-            from_address=payload.from_address,
-            subject=payload.subject,
-            provider_id=None,
-            provider_name="All providers failed",
-            status="failed",
-            processing_time_ms=processing_time,
-            request_payload=payload.model_dump_json(),
-            response_payload=json.dumps({"errors": errors}),
-            error_trace=errors[-1]["traceback"] if errors else None
-        )
-        
-        await run_in_threadpool(database_manager.insert_log, log)
-        
-        # Return detailed error
-        raise HTTPException(
-            status_code=502,
-            detail={
-                "message": "All email providers failed",
-                "log_id": log.id,
-                "processing_time_ms": processing_time,
-                "errors": errors
-            }
-        )
+            )
     
     @staticmethod
     def _select_manual(providers: list) -> object:

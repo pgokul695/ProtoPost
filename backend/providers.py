@@ -9,6 +9,26 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from .models import EmailPayload, Provider, ProviderType
 
+# ---------------------------------------------------------------------------
+# Shared async HTTP client — initialised in lifespan, reused across requests
+# to benefit from connection pooling and avoid per-request TLS handshakes.
+# ---------------------------------------------------------------------------
+_http_client: httpx.AsyncClient | None = None
+
+
+def init_http_client() -> None:
+    """Create the shared AsyncClient. Called once from lifespan startup."""
+    global _http_client
+    _http_client = httpx.AsyncClient(timeout=30.0)
+
+
+async def close_http_client() -> None:
+    """Close the shared AsyncClient. Called once from lifespan shutdown."""
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+
 
 async def send_via_resend(payload: EmailPayload, provider: Provider) -> dict:
     """
@@ -47,22 +67,24 @@ async def send_via_resend(payload: EmailPayload, provider: Provider) -> dict:
     if payload.reply_to:
         body["reply_to"] = payload.reply_to
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, json=body, headers=headers)
-        
-        if response.status_code not in [200, 201]:
-            raise Exception(
-                f"Resend API failed with status {response.status_code}: {response.text}"
-            )
-        
-        result = response.json()
-        
-        return {
-            "success": True,
-            "provider_id": provider.id,
-            "message_id": result.get("id", "unknown"),
-            "response": result
-        }
+    if _http_client is None:
+        raise RuntimeError("HTTP client is not initialized. Call init_http_client() first.")
+
+    response = await _http_client.post(url, json=body, headers=headers)
+
+    if response.status_code not in [200, 201]:
+        raise RuntimeError(
+            f"Resend API failed with status {response.status_code}: {response.text}"
+        )
+
+    result = response.json()
+
+    return {
+        "success": True,
+        "provider_id": provider.id,
+        "message_id": result.get("id", "unknown"),
+        "response": result
+    }
 
 
 async def send_via_mailtrap(payload: EmailPayload, provider: Provider) -> dict:
@@ -102,22 +124,24 @@ async def send_via_mailtrap(payload: EmailPayload, provider: Provider) -> dict:
     if payload.reply_to:
         body["reply_to"] = {"email": payload.reply_to}
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, json=body, headers=headers)
-        
-        if response.status_code not in [200, 201]:
-            raise Exception(
-                f"Mailtrap API failed with status {response.status_code}: {response.text}"
-            )
-        
-        result = response.json()
-        
-        return {
-            "success": True,
-            "provider_id": provider.id,
-            "message_id": result.get("message_id", "unknown"),
-            "response": result
-        }
+    if _http_client is None:
+        raise RuntimeError("HTTP client is not initialized. Call init_http_client() first.")
+
+    response = await _http_client.post(url, json=body, headers=headers)
+
+    if response.status_code not in [200, 201]:
+        raise RuntimeError(
+            f"Mailtrap API failed with status {response.status_code}: {response.text}"
+        )
+
+    result = response.json()
+
+    return {
+        "success": True,
+        "provider_id": provider.id,
+        "message_id": result.get("message_id", "unknown"),
+        "response": result
+    }
 
 
 async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
@@ -156,25 +180,19 @@ async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
     
     try:
         # Connect to Gmail SMTP server (port 587 + STARTTLS)
-        smtp_client = aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587, start_tls=True)
-        
-        await smtp_client.connect()
-        await smtp_client.login(provider.gmail_address, provider.gmail_app_password)
-        
-        # Send email
-        await smtp_client.send_message(message)
-        
-        await smtp_client.quit()
-        
+        async with aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587, start_tls=True) as smtp:
+            await smtp.login(provider.gmail_address, provider.gmail_app_password)
+            await smtp.send_message(message)
+
         return {
             "success": True,
             "provider_id": provider.id,
             "message_id": message.get("Message-ID", "unknown"),
             "response": {"status": "sent via Gmail SMTP"}
         }
-    
+
     except Exception as e:
-        raise Exception(f"Gmail SMTP failed: {str(e)}")
+        raise RuntimeError(f"Gmail SMTP failed for provider {provider.id}") from e
 
 
 async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dict:
@@ -222,7 +240,7 @@ async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dic
             await smtp.send_message(message)
             return {"success": True, "provider_id": provider.id}
     except Exception as e:
-        raise Exception(f"Custom SMTP failed: {str(e)}")
+        raise RuntimeError(f"Custom SMTP failed for provider {provider.id}") from e
 
 
 async def dispatch(payload: EmailPayload, provider: Provider) -> dict:
