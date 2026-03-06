@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { GatewayAPI } from '../api.js';
 import { Toast } from './toast.js';
+import { escapeHtml } from '../utils.js';
 
 export function renderProvidersTab() {
     const providers = state.config?.providers || [];
@@ -48,14 +49,14 @@ export function renderProviderCard(provider) {
         <div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <div class="flex items-start justify-between mb-4">
                 <div class="flex-1">
-                    <h3 class="text-lg font-semibold mb-2">${provider.name}</h3>
+                    <h3 class="text-lg font-semibold mb-2">${escapeHtml(provider.name)}</h3>
                     <span class="px-2 py-1 text-xs font-medium rounded ${typeColors[provider.type]}">
                         ${typeLabels[provider.type]}
                     </span>
                 </div>
                 <label class="flex items-center gap-2">
                     <input type="checkbox" ${provider.enabled ? 'checked' : ''} 
-                           onchange="toggleProvider('${provider.id}')"
+                           onchange="toggleProvider('${escapeHtml(provider.id)}')"
                            class="w-5 h-5 rounded accent-indigo-500">
                 </label>
             </div>
@@ -71,11 +72,11 @@ export function renderProviderCard(provider) {
             </div>
             
             <div class="flex gap-2">
-                <button onclick="openProviderForm('${provider.id}')" 
+                <button onclick="openProviderForm('${escapeHtml(provider.id)}')" 
                         class="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors">
                     Edit
                 </button>
-                <button onclick="deleteProvider('${provider.id}', '${provider.name}')" 
+                <button onclick="deleteProvider('${escapeHtml(provider.id)}', '${escapeHtml(provider.name)}')" 
                         class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded text-sm font-medium transition-colors">
                     Delete
                 </button>
@@ -169,7 +170,7 @@ export function renderProviderForm(provider) {
             <form onsubmit="saveProvider(event)" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-2">Provider Name</label>
-                    <input type="text" id="providerName" value="${provider?.name || ''}" 
+                <input type="text" id="providerName" value="${escapeHtml(provider?.name || '')}" 
                            required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
                 </div>
                 
@@ -231,7 +232,7 @@ export function updateProviderFormFields(type) {
             <div>
                 <label class="block text-sm font-medium mb-2">API Key</label>
                 <div class="relative">
-                    <input type="password" id="apiKey" value="${provider?.api_key || ''}" 
+                    <input type="password" id="apiKey" value="${escapeHtml(provider?.api_key || '')}" 
                            required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
                     <button type="button" onclick="togglePasswordVisibility('apiKey')" 
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
@@ -245,13 +246,13 @@ export function updateProviderFormFields(type) {
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-2">Gmail Address</label>
-                    <input type="email" id="gmailAddress" value="${provider?.gmail_address || ''}" 
+                    <input type="email" id="gmailAddress" value="${escapeHtml(provider?.gmail_address || '')}" 
                            required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-2">App Password</label>
                     <div class="relative">
-                        <input type="password" id="gmailAppPassword" value="${provider?.gmail_app_password || ''}" 
+                        <input type="password" id="gmailAppPassword" value="${escapeHtml(provider?.gmail_app_password || '')}" 
                                required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
                         <button type="button" onclick="togglePasswordVisibility('gmailAppPassword')" 
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
@@ -267,24 +268,24 @@ export function updateProviderFormFields(type) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium mb-2">SMTP Host</label>
-                        <input type="text" id="smtpHost" value="${provider?.smtp_host || ''}" 
+                        <input type="text" id="smtpHost" value="${escapeHtml(provider?.smtp_host || '')}" 
                                required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-2">SMTP Port</label>
-                        <input type="number" id="smtpPort" value="${provider?.smtp_port || 587}" 
+                        <input type="number" id="smtpPort" value="${escapeHtml(String(provider?.smtp_port || 587))}" 
                                required min="1" max="65535" class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-2">Username</label>
-                    <input type="text" id="smtpUsername" value="${provider?.smtp_username || ''}" 
+                    <input type="text" id="smtpUsername" value="${escapeHtml(provider?.smtp_username || '')}" 
                            required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-2">Password</label>
                     <div class="relative">
-                        <input type="password" id="smtpPassword" value="${provider?.smtp_password || ''}" 
+                        <input type="password" id="smtpPassword" value="${escapeHtml(provider?.smtp_password || '')}" 
                                required class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:border-indigo-500 pr-10">
                         <button type="button" onclick="togglePasswordVisibility('smtpPassword')" 
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">

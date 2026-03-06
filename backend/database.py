@@ -191,6 +191,11 @@ class DatabaseManager:
             }
     
     def get_total_count(self) -> int:
+        """Return the total number of email log entries in the database.
+
+        Returns:
+            int: Total row count from the email_logs table across all pages.
+        """
         with self._get_connection() as conn:
             return conn.execute("SELECT COUNT(*) FROM email_logs").fetchone()[0]
 

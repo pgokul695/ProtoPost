@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { GatewayAPI } from '../api.js';
 import { Toast } from './toast.js';
+import { escapeHtml } from '../utils.js';
 
 export function renderLogsTab() {
     const stats = state.stats;
@@ -90,17 +91,17 @@ export function renderLogRow(log) {
     return `
         <tr class="hover:bg-slate-750">
             <td class="px-4 py-3 text-sm text-slate-300">${timestamp}</td>
-            <td class="px-4 py-3 text-sm text-slate-300">${toAddresses[0]}</td>
-            <td class="px-4 py-3 text-sm text-slate-300">${log.subject}</td>
-            <td class="px-4 py-3 text-sm text-slate-300">${log.provider_name || 'N/A'}</td>
+            <td class="px-4 py-3 text-sm text-slate-300">${escapeHtml(toAddresses[0])}</td>
+            <td class="px-4 py-3 text-sm text-slate-300">${escapeHtml(log.subject)}</td>
+            <td class="px-4 py-3 text-sm text-slate-300">${escapeHtml(log.provider_name || 'N/A')}</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-1 text-xs font-medium rounded border ${statusColors[log.status]}">
-                    ${log.status.toUpperCase()}
+                    ${escapeHtml(log.status.toUpperCase())}
                 </span>
             </td>
             <td class="px-4 py-3 text-sm text-slate-300">${log.processing_time_ms.toFixed(2)}</td>
             <td class="px-4 py-3">
-                <button onclick="viewLogDetail('${log.id}')" class="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                <button onclick="viewLogDetail('${escapeHtml(log.id)}')" class="text-indigo-400 hover:text-indigo-300 text-sm font-medium">
                     View Details
                 </button>
             </td>
@@ -147,7 +148,7 @@ export async function viewLogDetail(logId) {
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Log ID</div>
-                            <div class="text-sm font-mono">${log.id}</div>
+                            <div class="text-sm font-mono">${escapeHtml(log.id)}</div>
                         </div>
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Timestamp</div>
@@ -155,7 +156,7 @@ export async function viewLogDetail(logId) {
                         </div>
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Status</div>
-                            <div class="text-sm font-semibold">${log.status.toUpperCase()}</div>
+                            <div class="text-sm font-semibold">${escapeHtml(log.status.toUpperCase())}</div>
                         </div>
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Processing Time</div>
@@ -165,39 +166,39 @@ export async function viewLogDetail(logId) {
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">To</div>
-                        <div class="text-sm">${toAddresses.join(', ')}</div>
+                        <div class="text-sm">${escapeHtml(toAddresses.join(', '))}</div>
                     </div>
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">From</div>
-                        <div class="text-sm">${log.from_address}</div>
+                        <div class="text-sm">${escapeHtml(log.from_address)}</div>
                     </div>
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Subject</div>
-                        <div class="text-sm">${log.subject}</div>
+                        <div class="text-sm">${escapeHtml(log.subject)}</div>
                     </div>
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Provider</div>
-                        <div class="text-sm">${log.provider_name || 'N/A'}</div>
+                        <div class="text-sm">${escapeHtml(log.provider_name || 'N/A')}</div>
                     </div>
                     
                     ${log.error_trace ? `
                         <div>
                             <div class="text-xs text-slate-400 mb-1">Error Trace</div>
-                            <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${log.error_trace}</pre>
+                            <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${escapeHtml(log.error_trace || '')}</pre>
                         </div>
                     ` : ''}
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Request Payload</div>
-                        <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${JSON.stringify(requestPayload, null, 2)}</pre>
+                        <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${escapeHtml(JSON.stringify(requestPayload, null, 2))}</pre>
                     </div>
                     
                     <div>
                         <div class="text-xs text-slate-400 mb-1">Response Payload</div>
-                        <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${JSON.stringify(responsePayload, null, 2)}</pre>
+                        <pre class="text-xs bg-slate-900 p-3 rounded overflow-x-auto">${escapeHtml(JSON.stringify(responsePayload, null, 2))}
                     </div>
                 </div>
             </div>

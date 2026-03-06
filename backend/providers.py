@@ -7,6 +7,7 @@ import httpx
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import make_msgid
 from .models import EmailPayload, Provider, ProviderType
 
 # ---------------------------------------------------------------------------
@@ -178,6 +179,8 @@ async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
     if payload.reply_to:
         message["Reply-To"] = payload.reply_to
     
+    message["Message-ID"] = make_msgid()
+
     try:
         # Connect to Gmail SMTP server (port 587 + STARTTLS)
         async with aiosmtplib.SMTP(hostname="smtp.gmail.com", port=587, start_tls=True) as smtp:
@@ -187,7 +190,7 @@ async def send_via_gmail(payload: EmailPayload, provider: Provider) -> dict:
         return {
             "success": True,
             "provider_id": provider.id,
-            "message_id": message.get("Message-ID", "unknown"),
+            "message_id": message["Message-ID"],
             "response": {"status": "sent via Gmail SMTP"}
         }
 
@@ -228,7 +231,9 @@ async def send_via_custom_smtp(payload: EmailPayload, provider: Provider) -> dic
     
     if payload.reply_to:
         message["Reply-To"] = payload.reply_to
-    
+
+    message["Message-ID"] = make_msgid()
+
     try:
         async with aiosmtplib.SMTP(
             hostname=provider.smtp_host,
@@ -270,4 +275,7 @@ async def dispatch(payload: EmailPayload, provider: Provider) -> dict:
         return await send_via_custom_smtp(payload, provider)
     
     else:
-        raise Exception(f"Unsupported provider type: {provider.type}")
+        raise ValueError(
+            f"Unknown provider type '{provider.type}' for provider '{provider.id}'. "
+            f"Valid types are: resend, mailtrap, gmail, custom_smtp."
+        ) from None
